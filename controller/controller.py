@@ -1,6 +1,7 @@
 import sys
 import os
 conf_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print(conf_path)
 sys.path.append(conf_path)
 from curses import wrapper
 from view.curses_multiwindow import main, Singleton
@@ -11,13 +12,13 @@ import view.slurm_list
 import view.slurm_viz
 import view.styles
 
-last_update = os.path.getmtime("./view/slurm_viz.py")
-if os.path.getmtime("./view/slurm_list.py") > last_update:
-    last_update = os.path.getmtime("./view/slurm_list.py")
-if os.path.getmtime("./view/styles.py") > last_update:
-    last_update = os.path.getmtime("./view/styles.py")
-if os.path.getmtime("./readers/slurmreader.py") > last_update:
-    last_update = os.path.getmtime("./readers/slurmreader.py")
+last_update = os.path.getmtime(conf_path + "/view/slurm_viz.py")
+if os.path.getmtime(conf_path + "/view/slurm_list.py") > last_update:
+    last_update = os.path.getmtime(conf_path + "/view/slurm_list.py")
+if os.path.getmtime(conf_path + "/view/styles.py") > last_update:
+    last_update = os.path.getmtime(conf_path + "/view/styles.py")
+if os.path.getmtime(conf_path + "/readers/slurmreader.py") > last_update:
+    last_update = os.path.getmtime(conf_path + "/readers/slurmreader.py")
 
 program_name = "nodeocc"
 version_number = 1.00
@@ -25,10 +26,10 @@ version_number = 1.00
 def get_all(a_filter):
     global last_update
     # watch for reload
-    updt = os.path.getmtime("./view/slurm_viz.py")
-    updt = max(updt, os.path.getmtime("./view/slurm_list.py"))
-    updt = max(updt, os.path.getmtime("./view/styles.py"))
-    updt = max(updt, os.path.getmtime("./readers/slurmreader.py"))
+    updt = os.path.getmtime(conf_path + "/view/slurm_viz.py")
+    updt = max(updt, os.path.getmtime(conf_path + "/view/slurm_list.py"))
+    updt = max(updt, os.path.getmtime(conf_path + "/view/styles.py"))
+    updt = max(updt, os.path.getmtime(conf_path + "/readers/slurmreader.py"))
 
     if updt > last_update:
         reload(readers.slurmreader)

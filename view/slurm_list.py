@@ -63,7 +63,7 @@ def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None)
     # from datetime import datetime
     # cust_print(f'{datetime.now()} - {filter}')
 
-    devjobs = sorted([x for x in jobs_to_print if 'dev' in x.partition], key=lambda x: (x.user, x.jobid))
+    devjobs = sorted([x for x in jobs_to_print if 'dev' in x.partition], key=lambda x: (x.user, x.jobid.split('_')[0], int(x.jobid.split('_')[1]) if '_' in x.jobid and '[' not in x.jobid else (999 if '[' in x.jobid else 0)))
     # dev - running
 
     for x in devjobs:
@@ -87,7 +87,7 @@ def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None)
 
     cust_print(midlane)
 
-    prodjobs = sorted([x for x in jobs_to_print if not('dev' in x.partition)], key=lambda x: (x.user, x.jobid))
+    prodjobs = sorted([x for x in jobs_to_print if not('dev' in x.partition)], key=lambda x: (x.user, x.jobid.split('_')[0], int(x.jobid.split('_')[1]) if '_' in x.jobid and '[' not in x.jobid else (999 if '[' in x.jobid else 0)))
     
     
     # dev - running

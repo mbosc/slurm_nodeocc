@@ -122,7 +122,7 @@ def view_viz(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user=Non
                             total_jobs_prod += jj.n_gpus
                         occs += jj.n_gpus
                         icon = paused if j.state == 'S' else occ
-                        st = icon + ('-' + icon) * (jj.n_gpus-1)
+                        st = icon + (('+' if len(j.joblets) > 1 else '-') + icon) * (jj.n_gpus-1)
                         joblet_icons.append((st, user_styles[j.user] if j.user in user_styles else None))
             joblet_icons += [(drain if n.status == 'drain' else (down if n.status == 'down' else avail), None)] * (n.n_gpus - occs)
             
@@ -138,7 +138,6 @@ def view_viz(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user=Non
                     jobsplit[-1] += stylefn(c, i) if c is not None else i
                     count += 1
 
-            # if n.name == '10': import pdb; pdb.set_trace()
             for i,l in enumerate(jobsplit):
                 RetScope.return_string += f'{_format_to(n.name if i == 0 else "", name_chars, "right")}{"(" if n.reserved and i == 0 else " "}{l}{")" if n.reserved and i == (len(jobline) - 1) else ""}\n'
 

@@ -114,7 +114,7 @@ def read_jobs():
     """
     Get jobs and joblets status
     """
-    squeue_cmd = r'squeue -O jobarrayid,Reason:130,NodeList:120,Username,tres-per-job,tres-per-node,Name:50,Partition,StateCompact,StartTime,TimeUsed,NumNodes,Reason:40 2> /dev/null'
+    squeue_cmd = r'squeue -O jobarrayid:200,Reason:130,NodeList:120,Username,tres-per-job,tres-per-node,Name:50,Partition,StateCompact,StartTime,TimeUsed,NumNodes,Reason:40 2> /dev/null'
     squeue_df = pd.read_fwf(StringIO(os.popen(squeue_cmd).read()))
     
     squeue_df = _split_column(squeue_df, 'NODELIST')

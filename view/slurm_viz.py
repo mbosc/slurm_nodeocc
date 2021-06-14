@@ -139,7 +139,7 @@ def view_viz(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user=Non
                     count += 1
 
             for i,l in enumerate(jobsplit):
-                RetScope.return_string += f'{_format_to(n.name if i == 0 else "", name_chars, "right")}{"(" if n.reserved and i == 0 else " "}{l}{")" if n.reserved and i == (len(jobline) - 1) else ""}\n'
+                RetScope.return_string += f'{_format_to(n.name if i == 0 else "", name_chars, "right")}{"(" if n.reserved and i == 0 else " "}{l}{")" if n.reserved and i == (len(jobsplit) - 1) else ""}\n'
 
         # verify maintenance status
         onmain = False

@@ -116,9 +116,9 @@ def view_viz(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user=Non
                     if jj.n_gpus == 0:
                         continue
                     if n.name == jj.node:
-                        if 'stu' in j.partition:
+                        if 'stu' in j.partition and 'prod' in j.partition:
                             total_jobs_stud += jj.n_gpus
-                        else:
+                        elif 'prod' in j.partition:
                             total_jobs_prod += jj.n_gpus
                         occs += jj.n_gpus
                         icon = paused if j.state == 'S' else occ

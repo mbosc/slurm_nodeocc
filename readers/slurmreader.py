@@ -23,7 +23,7 @@ def _split_column(df, column):
 def _node_from_sinfo(x):
     n = Node(_node_preproc(x['NODELIST']), x.n_gpu, x.m_gpu, x.reserved, None)
 
-    if x['STATE'] in ['drain', 'drng']:
+    if x['STATE'] == 'drng' or 'drain' in x['STATE']:
         n.status = 'drain'
     elif x['STATE'] in ['MAINT', 'DOWN']:
         n.status = 'down'
@@ -35,7 +35,7 @@ def _node_from_sinfo(x):
 def _read_nodes(reservations):
     sinfo_df = pd.read_csv(StringIO(os.popen(r'sinfo -o "%N;%G;%t"').read()), sep=';')
     sinfo_df = _split_column(sinfo_df, 'NODELIST')
-    
+
     sinfo_df['n_gpu'] = sinfo_df['GRES'].str.split(':').apply(lambda x: int(x[-1]))
     sinfo_df['m_gpu'] = sinfo_df['GRES'].str.split(':').apply(lambda x: x[1])
     if reservations is not None:

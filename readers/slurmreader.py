@@ -64,7 +64,7 @@ def _read_maintenances():
     reservations['StartTime'] = pd.to_datetime(reservations['StartTime'])
     reservations['EndTime'] = pd.to_datetime(reservations['EndTime'])
     reservations = _split_column(reservations, 'Nodes')
-    maint_flag = reservations['Flags'].str.contains('MAINT')
+    maint_flag = reservations['Flags'].str.contains('MAINT') #| reservations['ReservationName'].str.contains('limit_temp')
     
     maintenances = _maint_from_reservations(reservations[maint_flag])
     return maintenances, reservations[(~maint_flag) & (reservations['State'] == 'ACTIVE')]
@@ -95,10 +95,12 @@ def read_infrastructure():
 
 def _gpus_per_joblet(line):
     
-    if pd.isna(line['gpus_per_job']) and pd.isna(line['gpus_per_node']):
+    if pd.isna(line['gpus_per_job']) and pd.isna(line['gpus_per_node']) and pd.isna(line['gpus_per_task']):
         return 0
     elif not pd.isna(line['gpus_per_node']):
         return line['gpus_per_node'] * (line['NODES'] if pd.isna(line['NODELIST']) else 1)
+    elif not pd.isna(line['gpus_per_task']):
+        return line['gpus_per_task'] * (line['TASKS'])
     else:
         if line['ST'] == 'PD':
             return line['gpus_per_job']
@@ -114,13 +116,14 @@ def read_jobs():
     """
     Get jobs and joblets status
     """
-    squeue_cmd = r'squeue -O jobarrayid:200,Reason:130,NodeList:120,Username,tres-per-job,tres-per-node,Name:50,Partition,StateCompact,StartTime,TimeUsed,NumNodes,Reason:40 2> /dev/null'
+    squeue_cmd = r'squeue -O jobarrayid:200,Reason:130,NodeList:120,Username,tres-per-job,tres-per-task,tres-per-node,Name:50,Partition,StateCompact,StartTime,TimeUsed,NumNodes,NumTasks,Reason:40 2> /dev/null'
     squeue_df = pd.read_fwf(StringIO(os.popen(squeue_cmd).read()))
     
     squeue_df = _split_column(squeue_df, 'NODELIST')
-    squeue_df['gpus_per_node'] = squeue_df['TRES_PER_NODE'].apply(lambda x: int(x.split(':')[-1] if x != 'gpu' else 1) if type(x) == str else x)
-    squeue_df['gpus_per_job'] = squeue_df['TRES_PER_JOB'].apply(lambda x: int(x.split(':')[-1] if x != 'gpu' else 1) if type(x) == str else x)
-    squeue_df['joblet_gpus'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'NODELIST', 'NODES', 'JOBID', 'ST']].apply(_gpus_per_joblet, axis=1)
+    squeue_df['gpus_per_node'] = squeue_df['TRES_PER_NODE'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
+    squeue_df['gpus_per_job'] = squeue_df['TRES_PER_JOB'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
+    squeue_df['gpus_per_task'] = squeue_df['TRES_PER_TASK'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
+    squeue_df['joblet_gpus'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'gpus_per_task', 'TASKS', 'NODELIST', 'NODES', 'JOBID', 'ST']].apply(_gpus_per_joblet, axis=1)
 
     joblets = squeue_df.apply(lambda line: Joblet(line['JOBID'], _node_preproc(line['NODELIST']) if not pd.isna(line['NODELIST']) else None, line['joblet_gpus']), axis=1).tolist()
     jobs = squeue_df.drop_duplicates('JOBID').apply(lambda line: Job(

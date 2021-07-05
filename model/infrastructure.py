@@ -34,10 +34,11 @@ class Infrastructure:
         self.gpu_limit_grp = gpu_limit_grp
         self.gpu_limit_stu = gpu_limit_stu
         self.gpu_limit_stugrp = gpu_limit_stugrp
+        self.prior = ['RTX6000', '2080', 'V100', 'RTX5000', '1080', 'P100', 'K80']
 
     def __repr__(self):
         return "INFRASTRUCTURE\n" + "\n".join([str(x) for x in self.maintenances]) + "\n\n" + "\n".join([str(x) for x in self.nodes]) + f"\n\nlimits:({self.gpu_limit_pu}:{self.gpu_limit_grp}),({self.gpu_limit_stu}:{self.gpu_limit_stugrp})"
 
     def get_sorted_nodes(self):
-        prior = ['RTX6000', '2080', 'V100', 'RTX5000', '1080', 'P100', 'K80']
-        return sorted(self.nodes, key=lambda x: prior.index(x.gpu_model) if x.gpu_model in prior else -1)
+        
+        return sorted(self.nodes, key=lambda x: self.prior.index(x.gpu_model) if x.gpu_model in self.prior else -1)

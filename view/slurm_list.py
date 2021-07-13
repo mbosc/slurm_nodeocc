@@ -70,15 +70,15 @@ def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None,
         if x.state == 'R':
             cust_print(_joblet_format(x, width=width))
 
-    # dev - pending
-    for x in devjobs:
-        if x.state == 'PD':
-            cust_print(_joblet_format(x, width=width), style='YELLOW')
-
     # dev - stopped
     for x in devjobs:
         if x.state == 'S':
             cust_print(_joblet_format(x, width=width), style='MAGENTA')
+            
+    # dev - pending
+    for x in devjobs:
+        if x.state == 'PD':
+            cust_print(_joblet_format(x, width=width), style='YELLOW')
 
     # dev - concluding
     for x in devjobs:
@@ -95,15 +95,15 @@ def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None,
         if x.state == 'R':
             cust_print(_joblet_format(x, width=width))
 
-    # dev - pending
-    for x in prodjobs:
-        if x.state == 'PD':
-            cust_print(_joblet_format(x, width=width), style='YELLOW')
-
     # dev - stopped
     for x in prodjobs:
         if x.state == 'S':
             cust_print(_joblet_format(x, width=width), style='MAGENTA')
+
+    # dev - pending
+    for x in prodjobs:
+        if x.state == 'PD':
+            cust_print(_joblet_format(x, width=width), style='YELLOW')
 
     # dev - concluding
     for x in prodjobs:

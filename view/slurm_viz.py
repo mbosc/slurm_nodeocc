@@ -99,7 +99,7 @@ def view_viz(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user=Non
 
     if not infrast_down:
         highlighted_users = [current_user]
-        highlighted_users += pd.DataFrame([(j.user, sum([x.n_gpus for x in j.joblets])) for j in jobs if j.user != current_user]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
+        highlighted_users += pd.DataFrame([(j.user, sum([x.n_gpus for x in j.joblets])) for j in jobs if j.user != current_user and j.state=='R']).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
 
         user_styles = dict(zip(highlighted_users, ['RED','YELLOW','GREEN','MAGENTA','BLUE']))
         

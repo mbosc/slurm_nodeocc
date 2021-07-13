@@ -94,7 +94,7 @@ def read_infrastructure():
     
 
 def _gpus_per_joblet(line):
-    
+
     if pd.isna(line['gpus_per_job']) and pd.isna(line['gpus_per_node']) and pd.isna(line['gpus_per_task']):
         return 0
     elif not pd.isna(line['gpus_per_node']):
@@ -104,9 +104,10 @@ def _gpus_per_joblet(line):
     else:
         if line['ST'] == 'PD':
             return line['gpus_per_job']
-        jobline = f'scontrol show jobid -d {line["JOBID"]} | grep Nodes={line["NODELIST"]}'
-        gpus_id = os.popen(jobline).read().split('IDX:')[-1].split(')')[0].split(',')
-        gpus_n = len(gpus_id) + sum([len(range(int(x.split('-')[1]) - int(x.split('-')[0]))) for x in gpus_id if '-' in x])
+        jobline = f'scontrol show jobid -d {line["JOBID"]} | grep Nodes= | grep {line["NODELIST"]}'
+        gpus_id = os.popen(jobline).read().splitlines()
+        gpus_id = [x.split('IDX:')[-1].split(')')[0].split(',') for x in gpus_id if 'gpu' in x]
+        gpus_n = len(gpus_id) + sum([len(range(int(x.split('-')[1].split()[0]) - int(x.split('-')[0]))) for x in gpus_id if '-' in x])
         return gpus_n
 
 def _node_preproc(x):
@@ -116,7 +117,7 @@ def read_jobs():
     """
     Get jobs and joblets status
     """
-    squeue_cmd = r'squeue -O jobarrayid:200,Reason:130,NodeList:120,Username,tres-per-job,tres-per-task,tres-per-node,Name:50,Partition,StateCompact,StartTime,TimeUsed,NumNodes,NumTasks,Reason:40 2> /dev/null'
+    squeue_cmd = r'squeue -O jobarrayid:200,Reason:130,NodeList:120,Username,tres-per-job,tres-per-task,tres-per-node,Name:200,Partition,StateCompact,StartTime,TimeUsed,NumNodes,NumTasks,Reason:40 2> /dev/null'
     squeue_df = pd.read_fwf(StringIO(os.popen(squeue_cmd).read()))
     squeue_df['JOBID'] = squeue_df['JOBID'].apply(lambda x: str(x))
     
@@ -126,6 +127,7 @@ def read_jobs():
     squeue_df['gpus_per_task'] = squeue_df['TRES_PER_TASK'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
     squeue_df['joblet_gpus'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'gpus_per_task', 'TASKS', 'NODELIST', 'NODES', 'JOBID', 'ST']].apply(_gpus_per_joblet, axis=1)
 
+    # import pdb; pdb.set_trace()
     joblets = squeue_df.apply(lambda line: Joblet(line['JOBID'], _node_preproc(line['NODELIST']) if not pd.isna(line['NODELIST']) else None, line['joblet_gpus']), axis=1).tolist()
     jobs = squeue_df.drop_duplicates('JOBID').apply(lambda line: Job(
         line['JOBID'], line['NAME'], line['USER'],

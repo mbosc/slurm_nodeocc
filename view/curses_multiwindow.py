@@ -98,10 +98,13 @@ class Buffer(object):
                         self.window.addstr(nr + off + 1, xacc, chunk_segments[1])
                         xacc += len(chunk_segments[1])
                 else:
-                    self.window.addstr(nr + off + 1, xacc, chunk)
+                    try:
+                        self.window.addstr(nr + off + 1, xacc, chunk)
+                    except:
+                        pass
                     xacc += len(chunk)
         if len(self.buffer) > self.lines - 2:
-            self.screen.addstr(self.lines-2, Singleton.getInstance().xoffset + 30, ' ▼ SCROLL ▲ ' , curses.color_pair(2) | curses.A_REVERSE)
+            self.screen.addstr(self.lines-2, Singleton.getInstance().xoffset + Singleton.getInstance().left_width // 2 - 6, ' ▼ SCROLL ▲ ' , curses.color_pair(2) | curses.A_REVERSE)
             Singleton.getInstance().add_button(self.lines-2, Singleton.getInstance().xoffset + 31, 'D', ord('s'))
             Singleton.getInstance().add_button(self.lines-2, Singleton.getInstance().xoffset + 40, 'U', ord('w'))
         self.window.border()
@@ -285,7 +288,7 @@ def main(stdscr):
             Singleton.getInstance().voff -= 1
         outdated = outdated or time.time() - refreshtime > 2
         
-        xoffset = (columns - 104) //2
+        xoffset = 0#(columns - 104) //2
         Singleton.getInstance().xoffset = xoffset
 
         # fetch state in separate thread
@@ -304,9 +307,11 @@ def main(stdscr):
         half_width = int(columns / 2)
         stdscr.refresh()
 
-        left_window = curses.newwin(lines-1, 72, 0, xoffset)
+        left_width = columns - 33 #72
+        Singleton.getInstance().left_width = left_width
+        left_window = curses.newwin(lines-1, left_width, 0, xoffset)
         left_buffer = Buffer(left_window, lines, stdscr)
-        right_window = curses.newwin(lines-1,31, 0, xoffset + 73)
+        right_window = curses.newwin(lines-1,31, 0, xoffset + left_width + 1)
         right_buffer = Buffer(right_window, lines, stdscr)
             
             
@@ -333,14 +338,14 @@ def main(stdscr):
         Singleton.getInstance().add_button(lines-1,xoffset + 1 + 19, '▶', ord('d'))
         stdscr.addstr(lines-1,xoffset + 1 + 20, ' ' * (columns - 22 - xoffset))
         
-        stdscr.addstr(lines-1,xoffset + 1 + 53,'[Q:QUIT]', curses.color_pair(2))
-        Singleton.getInstance().add_button(lines-1,xoffset + 1 + 53,'[Q:QUIT]', ord('q'))
+        stdscr.addstr(lines-1,left_width - 18,'[Q:QUIT]', curses.color_pair(2))
+        Singleton.getInstance().add_button(lines-1,left_width - 18,'[Q:QUIT]', ord('q')) #53
 
-        stdscr.addstr(lines-1,xoffset + 1 + 61,'[Y:REDRAW]', curses.color_pair(2))
-        Singleton.getInstance().add_button(lines-1,xoffset + 1 + 61,'[Y:REDRAW]', ord('y'))
+        stdscr.addstr(lines-1,left_width - 18 + 8,'[Y:REDRAW]', curses.color_pair(2))
+        Singleton.getInstance().add_button(lines-1,left_width - 18 + 8,'[Y:REDRAW]', ord('y'))
         
         signature = Singleton.getInstance().signature
-        stdscr.addstr(lines-1,xoffset + 1 + min(103, columns)-1-len(signature), signature)
+        stdscr.addstr(lines-1,columns-2-len(signature), signature)
         
 
         stdscr.refresh()

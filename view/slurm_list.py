@@ -2,13 +2,13 @@ from view.styles import cmdstyle, _format_to
 
 midlane = "─────────── ▲ DEV ──────────────────────────────── ▼ PROD ────────────"
 
-def _joblet_format(job):
+def _joblet_format(job, width=72):
     joblet_reprs = []
     for i, joblet in enumerate(job.joblets):
         joblet_repr = ''
         joblet_repr += _format_to(job.jobid.replace('[','').replace(']','').split('%')[0], 15)
         joblet_repr += ' '
-        joblet_repr += _format_to(job.name if i == 0 else '"', 8, 'right')
+        joblet_repr += _format_to(job.name if i == 0 else '"', width - 64, 'right')
         joblet_repr += ' '
         joblet_repr += _format_to(job.user if i == 0 else '"', 13, 'right')
         joblet_repr += ' '
@@ -23,7 +23,7 @@ def _joblet_format(job):
     job_repr = '\n'.join(joblet_reprs)
     return job_repr
 
-def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None):
+def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None, width=72):
     # this is for hot reload
     if not work:
         return "UPDATE IN PROGRESS - PLZ W8 M8 B8"
@@ -68,24 +68,24 @@ def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None)
 
     for x in devjobs:
         if x.state == 'R':
-            cust_print(_joblet_format(x))
+            cust_print(_joblet_format(x, width=width))
 
     # dev - pending
     for x in devjobs:
         if x.state == 'PD':
-            cust_print(_joblet_format(x), style='YELLOW')
+            cust_print(_joblet_format(x, width=width), style='YELLOW')
 
     # dev - stopped
     for x in devjobs:
         if x.state == 'S':
-            cust_print(_joblet_format(x), style='MAGENTA')
+            cust_print(_joblet_format(x, width=width), style='MAGENTA')
 
     # dev - concluding
     for x in devjobs:
         if x.state == 'CG':
-            cust_print(_joblet_format(x), style='MAGENTA')
+            cust_print(_joblet_format(x, width=width), style='MAGENTA')
 
-    cust_print(midlane)
+    cust_print('─' * ((width - 72) // 2) + midlane + '─' * (width - 72 - ((width - 72) // 2)))
 
     prodjobs = sorted([x for x in jobs_to_print if not('dev' in x.partition)], key=lambda x: (x.user, x.jobid.split('_')[0], int(x.jobid.split('_')[1]) if '_' in x.jobid and '[' not in x.jobid else (999 if '[' in x.jobid else 0)))
     
@@ -93,22 +93,22 @@ def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None)
     # dev - running
     for x in prodjobs:
         if x.state == 'R':
-            cust_print(_joblet_format(x))
+            cust_print(_joblet_format(x, width=width))
 
     # dev - pending
     for x in prodjobs:
         if x.state == 'PD':
-            cust_print(_joblet_format(x), style='YELLOW')
+            cust_print(_joblet_format(x, width=width), style='YELLOW')
 
     # dev - stopped
     for x in prodjobs:
         if x.state == 'S':
-            cust_print(_joblet_format(x), style='MAGENTA')
+            cust_print(_joblet_format(x, width=width), style='MAGENTA')
 
     # dev - concluding
     for x in prodjobs:
         if x.state == 'CG':
-            cust_print(_joblet_format(x), style='MAGENTA')
+            cust_print(_joblet_format(x, width=width), style='MAGENTA')
 
     return RetScope.return_string
 

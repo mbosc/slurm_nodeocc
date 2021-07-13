@@ -106,7 +106,7 @@ def _gpus_per_joblet(line):
             return line['gpus_per_job']
         jobline = f'scontrol show jobid -d {line["JOBID"]} | grep Nodes= | grep {line["NODELIST"]}'
         gpus_id = os.popen(jobline).read().splitlines()
-        gpus_id = [x.split('IDX:')[-1].split(')')[0].split(',') for x in gpus_id if 'gpu' in x]
+        gpus_id = sum([x.split('IDX:')[-1].split(')')[0].split(',') for x in gpus_id if 'gpu' in x], [])
         gpus_n = len(gpus_id) + sum([len(range(int(x.split('-')[1].split()[0]) - int(x.split('-')[0]))) for x in gpus_id if '-' in x])
         return gpus_n
 

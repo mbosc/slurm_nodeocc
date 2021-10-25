@@ -24,7 +24,7 @@ def _node_from_sinfo(x):
     n = Node(_node_preproc(x['NODELIST']), x.n_gpu, x.m_gpu, x.reserved, None)
     if x['STATE'] == 'drng' or 'drain' in x['STATE']:
         n.status = 'drain'
-    elif x['STATE'].upper() in ['MAINT', 'DOWN', 'DOWN*']:
+    elif x['STATE'].upper() in ['MAINT', 'DOWN', 'DOWN*', 'FAIL', 'FAILING', 'FAIL*']:
         n.status = 'down'
     else:
         n.status = 'ok'

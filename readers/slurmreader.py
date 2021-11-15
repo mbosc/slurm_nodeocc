@@ -93,13 +93,10 @@ def read_infrastructure():
     
 
 def _gpus_per_joblet(line):
-
     if pd.isna(line['gpus_per_job']) and pd.isna(line['gpus_per_node']) and pd.isna(line['gpus_per_task']):
         return 0
     elif not pd.isna(line['gpus_per_node']):
         return line['gpus_per_node'] * (line['NODES'] if pd.isna(line['NODELIST']) else 1)
-    elif not pd.isna(line['gpus_per_task']):
-        return line['gpus_per_task'] * (line['TASKS'])
     else:
         if line['ST'] == 'PD':
             return line['gpus_per_job']

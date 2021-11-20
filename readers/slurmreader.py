@@ -34,9 +34,8 @@ def _node_from_sinfo(x):
 def _read_nodes(reservations):
     sinfo_df = pd.read_csv(StringIO(os.popen(r'sinfo -o "%N;%G;%t"').read()), sep=';')
     sinfo_df = _split_column(sinfo_df, 'NODELIST')
-
-    sinfo_df['n_gpu'] = sinfo_df['GRES'].str.split(':').apply(lambda x: int(x[-1]))
-    sinfo_df['m_gpu'] = sinfo_df['GRES'].str.split(':').apply(lambda x: x[1])
+    sinfo_df['n_gpu'] = sinfo_df['GRES'].str.split(':').apply(lambda x: 0 if x[0] == '(null)' else int(x[-1]))
+    sinfo_df['m_gpu'] = sinfo_df['GRES'].str.split(':').apply(lambda x: 'n/a' if x[0] == '(null)' else x[1])
     if reservations is not None:
         sinfo_df['reserved'] = sinfo_df['NODELIST'].isin(reservations.Nodes.unique())
     else:

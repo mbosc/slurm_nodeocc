@@ -38,12 +38,17 @@ def get_all(a_filter):
         reload(view.styles)
         last_update = updt
 
-    inf = readers.slurmreader.read_infrastructure()
-    jobs, _ = readers.slurmreader.read_jobs()
+    try:
+        inf = readers.slurmreader.read_infrastructure()
+        jobs, _ = readers.slurmreader.read_jobs()
 
 
-    Singleton.getInstance().rens = view.slurm_list.view_list(jobs, a_filter, stylefn=view.styles.crsstyler, width=Singleton.getInstance().left_width if hasattr(Singleton.getInstance(), 'left_width') else 72)
-    Singleton.getInstance().nocc = view.slurm_viz.view_viz(inf, jobs, stylefn=view.styles.crsstyler)
+        Singleton.getInstance().rens = view.slurm_list.view_list(jobs, a_filter, stylefn=view.styles.crsstyler, width=Singleton.getInstance().left_width if hasattr(Singleton.getInstance(), 'left_width') else 72)
+        Singleton.getInstance().nocc = view.slurm_viz.view_viz(inf, jobs, stylefn=view.styles.crsstyler)
+    except:
+        Singleton.getInstance().rens = 'Something went wrong'
+        Singleton.getInstance().nocc = ':('
+
 
 # configure singleton
 

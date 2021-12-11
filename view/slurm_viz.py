@@ -102,6 +102,9 @@ def view_viz(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user=Non
         highlighted_users += pd.DataFrame([(j.user, sum([x.n_gpus for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ['R', 'S']]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
 
         user_styles = dict(zip(highlighted_users, ['RED','YELLOW','GREEN','MAGENTA','BLUE']))
+        students = [j.user for j in jobs if 'students' in j.partition]
+        for s in students:
+            user_styles[s] = 'CYAN'
         
         stalled_jobs = sum([j.state == 'S' for j in jobs])
         total_jobs_prod = 0

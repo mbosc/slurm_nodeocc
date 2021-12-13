@@ -112,8 +112,8 @@ def read_jobs():
     """
     Get jobs and joblets status
     """
-    squeue_cmd = r'squeue -O jobarrayid:200,Reason:300,NodeList:120,Username,tres-per-job,tres-per-task,tres-per-node,Name:200,Partition,StateCompact,StartTime,TimeUsed,NumNodes,NumTasks,Reason:40 2> /dev/null'
-    squeue_df = pd.read_fwf(StringIO(os.popen(squeue_cmd).read()))
+    squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus 2> /dev/null'
+    squeue_df = pd.read_csv(StringIO(os.popen(squeue_cmd).read()), sep=';')
     squeue_df['JOBID'] = squeue_df['JOBID'].apply(lambda x: str(x))
     squeue_df = _split_column(squeue_df, 'NODELIST')
     squeue_df['gpus_per_node'] = squeue_df['TRES_PER_NODE'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)

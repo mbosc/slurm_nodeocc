@@ -187,6 +187,8 @@ def view_viz(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user=Non
 
         # print user list
         for u, c in user_styles.items():
+            if c == 'CYAN':
+                continue
             cust_print(f" {stylefn(c, occ)} {stylefn('CYAN', u) if any(['stu' in j.partition for j in jobs if j.user == u]) else u} ({sum([sum([jj.n_gpus for jj in j.joblets if jj.node is not None]) for j in jobs if j.user == u])})")
         cust_print(f" {stylefn('CYAN', occ)} {stylefn('CYAN', 'students')}")
         

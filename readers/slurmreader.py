@@ -113,8 +113,6 @@ def _gpus_per_joblet(line):
     else:
         if line['ST'] == 'PD':
             return line['gpus_per_job']
-        # jobline = f'scontrol show jobid -d {line["JOBID"]} | grep Nodes= | grep {line["NODELIST"]}'
-        # gpus_id = os.popen(jobline).read().splitlines()
         gpus_id = [x for x in _parse_scontrol_joblet(line["JOBID"]) if line["NODELIST"] in x]
         gpus_id = sum([x.split('IDX:')[-1].split(')')[0].split(',') for x in gpus_id if 'gpu' in x], [])
         gpus_n = len(gpus_id) + sum([len(range(int(x.split('-')[1].split()[0]) - int(x.split('-')[0]))) for x in gpus_id if '-' in x])
@@ -124,8 +122,6 @@ def _cpus_per_joblet(line):
     if line['ST'] == 'PD':
         return line['MIN_CPUS']
     else:
-        # jobline = f'scontrol show jobid -d {line["JOBID"]} | grep Nodes= | grep {line["NODELIST"]}'
-        # cpus_id = os.popen(jobline).read().splitlines()
         cpus_id = [x for x in _parse_scontrol_joblet(line["JOBID"]) if line["NODELIST"] in x]
         cpus = sum([x.split('CPU_IDs=')[-1].split()[0].split(',') for x in cpus_id], [])
         cpus_n = len(cpus) + sum([len(range(int(x.split('-')[1].split()[0]) - int(x.split('-')[0]))) for x in cpus if '-' in x])
@@ -145,12 +141,8 @@ def _mem_per_joblet(line):
         else:
             return line['MIN_MEMORY']
     else:
-        # jobline = f'scontrol show jobid -d {line["JOBID"]} | grep Nodes= | grep {line["NODELIST"]}'
-        # mem_id = os.popen(jobline).read().splitlines()
         mem_id = [x for x in _parse_scontrol_joblet(line["JOBID"]) if line["NODELIST"] in x]
         mem = sum([int(x.split('Mem=')[-1].split()[0]) for x in mem_id])
-        # cpus_n = len(cpus) + sum([len(range(int(x.split('-')[1].split()[0]) - int(x.split('-')[0]))) for x in cpus if '-' in x])
-        # mem = int(os.popen(jobline).read().splitlines().split('Mem=')[-1].split()[0])
         return mem
 
 def _node_preproc(x):
@@ -160,8 +152,8 @@ def read_jobs():
     """
     Get jobs and joblets status
     """
-    squeue_cmd = r'squeue -O jobarrayid:200,Reason:300,NodeList:120,Username,tres-per-job,tres-per-task,tres-per-node,Name:200,Partition,StateCompact,StartTime,TimeUsed,NumNodes,NumTasks,Reason:40,MinMemory,MinCpus 2> /dev/null'
-    squeue_df = pd.read_fwf(StringIO(os.popen(squeue_cmd).read()))
+    squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus 2> /dev/null'
+    squeue_df = pd.read_csv(StringIO(os.popen(squeue_cmd).read()), sep=';')
     squeue_df['JOBID'] = squeue_df['JOBID'].apply(lambda x: str(x))
     squeue_df = _split_column(squeue_df, 'NODELIST')
     squeue_df['gpus_per_node'] = squeue_df['TRES_PER_NODE'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)

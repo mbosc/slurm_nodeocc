@@ -98,7 +98,7 @@ def _gpus_per_joblet(line):
         return line['gpus_per_node'] * (line['NODES'] if pd.isna(line['NODELIST']) else 1)
     else:
         if line['ST'] == 'PD':
-            return line['gpus_per_job']
+            return line['gpus_per_job'] if not pd.isna(line['gpus_per_job']) else line['gpus_per_task']
         jobline = f'scontrol show jobid -d {line["JOBID"]} | grep Nodes= | grep {line["NODELIST"]}'
         gpus_id = os.popen(jobline).read().splitlines()
         gpus_id = sum([x.split('IDX:')[-1].split(')')[0].split(',') for x in gpus_id if 'gpu' in x], [])
@@ -120,8 +120,7 @@ def read_jobs():
     squeue_df['gpus_per_job'] = squeue_df['TRES_PER_JOB'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
     squeue_df['gpus_per_task'] = squeue_df['TRES_PER_TASK'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
     squeue_df['joblet_gpus'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'gpus_per_task', 'TASKS', 'NODELIST', 'NODES', 'JOBID', 'ST']].apply(_gpus_per_joblet, axis=1)
-
-    # import pdb; pdb.set_trace()
+    
     joblets = squeue_df.apply(lambda line: Joblet(line['JOBID'], _node_preproc(line['NODELIST']) if not pd.isna(line['NODELIST']) else None, line['joblet_gpus']), axis=1).tolist()
     jobs = squeue_df.drop_duplicates('JOBID').apply(lambda line: Job(
         line['JOBID'], line['NAME'], line['USER'],

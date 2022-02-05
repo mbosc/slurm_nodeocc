@@ -13,7 +13,8 @@ class Job:
         self.reason = reason
 
     def __repr__(self):
-        return f"JOB: {self.jobid} - {self.name} ({self.user}) [{self.reason}]"
+        return f"JOB: {self.jobid} - {self.name} ({self.user}) [{self.reason}]\n" + \
+            '\n'.join(['\t' + str(x) for x in self.joblets])
 
 class Joblet:
     """
@@ -21,10 +22,12 @@ class Joblet:
     of a SLURM job running on a given node
     """
     
-    def __init__(self, jobid, node, n_gpus) -> None:
+    def __init__(self, jobid, node, n_gpus, cpus, mem) -> None:
         self.jobid = jobid
         self.node = node
         self.n_gpus = int(n_gpus)
+        self.mem = mem
+        self.cpus = cpus
 
     def __repr__(self):
-        return f"JOBLET: {self.jobid} on {self.node} ({self.n_gpus} gpus)"
+        return f"JOBLET: {self.jobid} on {self.node} ({self.n_gpus} gpus, {self.cpus} cpus, {self.mem/1024} Gmem)"

@@ -4,6 +4,8 @@ import pandas as pd
 from model.infrastructure import Node, Maintenance, Infrastructure
 from model.job import Job, Joblet
 
+joblet_cache = {}
+
 def _ungroup_slurm_names(x):
     if '[' in x:
         tokens = x.split('[')[1].split(']')[0].split(',')
@@ -21,7 +23,7 @@ def _split_column(df, column):
     return node_flat.merge(df[[x for x in df.columns if x != column]], left_index=True, right_index=True).reset_index(drop=True)
 
 def _node_from_sinfo(x):
-    n = Node(_node_preproc(x['NODELIST']), x.n_gpu, x.m_gpu, x.reserved, None)
+    n = Node(_node_preproc(x['NODELIST']), x.n_gpu, x.m_gpu, x.reserved, None, x.CPUS, x.MEMORY)
     if x['STATE'] == 'drng' or 'drain' in x['STATE']:
         n.status = 'drain'
     elif x['STATE'].upper() in ['MAINT', 'DOWN', 'DOWN*', 'FAIL', 'FAILING', 'FAIL*']:
@@ -32,8 +34,8 @@ def _node_from_sinfo(x):
 
 
 def _read_nodes(reservations):
-    sinfo_df = pd.read_csv(StringIO(os.popen(r'sinfo -o "%N;%G;%t"').read()), sep=';')
-    sinfo_df = _split_column(sinfo_df, 'NODELIST')
+    sinfo_df = pd.read_csv(StringIO(os.popen(r'sinfo -N -o "%N;%G;%t;%m;%c"').read()), sep=';')
+    sinfo_df = _split_column(sinfo_df, 'NODELIST').drop_duplicates()    
     sinfo_df['n_gpu'] = sinfo_df['GRES'].str.split(':').apply(lambda x: 0 if x[0] == '(null)' else int(x[-1]))
     sinfo_df['m_gpu'] = sinfo_df['GRES'].str.split(':').apply(lambda x: 'n/a' if x[0] == '(null)' else x[1])
     if reservations is not None:
@@ -89,7 +91,19 @@ def read_infrastructure():
     nodes = _read_nodes(reserv)
     mpu, mpug, mspu, mspug = _read_limits()
     return Infrastructure(maints, nodes, mpu, mpug, mspu, mspug)
-    
+
+
+def _parse_scontrol_joblet(jobid):
+    global joblet_cache
+    if jobid not in joblet_cache:
+        jobline = f'scontrol show jobid -d {jobid} | grep \' Nodes=\''
+        joblet_id = os.popen(jobline).read().splitlines()
+        joblet_cache[jobid] = joblet_id
+    return joblet_cache[jobid]
+
+def _purge_cache():
+    global joblet_cache
+    joblet_cache = {}
 
 def _gpus_per_joblet(line):
     if pd.isna(line['gpus_per_job']) and pd.isna(line['gpus_per_node']) and pd.isna(line['gpus_per_task']):
@@ -99,11 +113,37 @@ def _gpus_per_joblet(line):
     else:
         if line['ST'] == 'PD':
             return line['gpus_per_job'] if not pd.isna(line['gpus_per_job']) else line['gpus_per_task']
-        jobline = f'scontrol show jobid -d {line["JOBID"]} | grep Nodes= | grep {line["NODELIST"]}'
-        gpus_id = os.popen(jobline).read().splitlines()
+        gpus_id = [x for x in _parse_scontrol_joblet(line["JOBID"]) if line["NODELIST"] in x]
         gpus_id = sum([x.split('IDX:')[-1].split(')')[0].split(',') for x in gpus_id if 'gpu' in x], [])
         gpus_n = len(gpus_id) + sum([len(range(int(x.split('-')[1].split()[0]) - int(x.split('-')[0]))) for x in gpus_id if '-' in x])
         return gpus_n
+
+def _cpus_per_joblet(line):
+    if line['ST'] == 'PD':
+        return line['MIN_CPUS']
+    else:
+        cpus_id = [x for x in _parse_scontrol_joblet(line["JOBID"]) if line["NODELIST"] in x]
+        cpus = sum([x.split('CPU_IDs=')[-1].split()[0].split(',') for x in cpus_id], [])
+        cpus_n = len(cpus) + sum([len(range(int(x.split('-')[1].split()[0]) - int(x.split('-')[0]))) for x in cpus if '-' in x])
+        return cpus_n
+
+memunits = {
+    'K': 2**-10,
+    'M': 2**0,
+    'G': 2**10,
+    'T': 2**20
+}
+
+def _mem_per_joblet(line):
+    if line['ST'] == 'PD':
+        if any([l in line['MIN_MEMORY'] for l in memunits]):
+            return float(line['MIN_MEMORY'][:-1]) * memunits[line['MIN_MEMORY'][-1]]
+        else:
+            return line['MIN_MEMORY']
+    else:
+        mem_id = [x for x in _parse_scontrol_joblet(line["JOBID"]) if line["NODELIST"] in x]
+        mem = sum([int(x.split('Mem=')[-1].split()[0]) for x in mem_id])
+        return mem
 
 def _node_preproc(x):
     return x.replace('aimagelab-srv-', '')
@@ -112,7 +152,7 @@ def read_jobs():
     """
     Get jobs and joblets status
     """
-    squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus 2> /dev/null'
+    squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus: 2> /dev/null'
     squeue_df = pd.read_csv(StringIO(os.popen(squeue_cmd).read()), sep=';')
     squeue_df['JOBID'] = squeue_df['JOBID'].apply(lambda x: str(x))
     squeue_df = _split_column(squeue_df, 'NODELIST')
@@ -120,8 +160,10 @@ def read_jobs():
     squeue_df['gpus_per_job'] = squeue_df['TRES_PER_JOB'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
     squeue_df['gpus_per_task'] = squeue_df['TRES_PER_TASK'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
     squeue_df['joblet_gpus'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'gpus_per_task', 'TASKS', 'NODELIST', 'NODES', 'JOBID', 'ST']].apply(_gpus_per_joblet, axis=1)
-    
-    joblets = squeue_df.apply(lambda line: Joblet(line['JOBID'], _node_preproc(line['NODELIST']) if not pd.isna(line['NODELIST']) else None, line['joblet_gpus']), axis=1).tolist()
+    squeue_df['joblet_cpus'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'gpus_per_task', 'TASKS', 'NODELIST', 'NODES', 'JOBID', 'ST', 'MIN_CPUS']].apply(_cpus_per_joblet, axis=1)
+    squeue_df['joblet_mem'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'gpus_per_task', 'TASKS', 'NODELIST', 'NODES', 'JOBID', 'ST', 'MIN_MEMORY']].apply(_mem_per_joblet, axis=1)
+    _purge_cache()
+    joblets = squeue_df.apply(lambda line: Joblet(line['JOBID'], _node_preproc(line['NODELIST']) if not pd.isna(line['NODELIST']) else None, line['joblet_gpus'], line['joblet_cpus'], line['joblet_mem']), axis=1).tolist()
     jobs = squeue_df.drop_duplicates('JOBID').apply(lambda line: Job(
         line['JOBID'], line['NAME'], line['USER'],
         line['PARTITION'], line['ST'], line['TIME'], line['REASON']

@@ -3,15 +3,17 @@ class Node:
     A simple class modelling a node within
     the SLURM infrastructure
     """
-    def __init__(self, name, n_gpus, gpu_model, reserved, status) -> None:
+    def __init__(self, name, n_gpus, gpu_model, reserved, status, cpus, mem) -> None:
         self.name = name
         self.n_gpus = n_gpus
         self.gpu_model = gpu_model
         self.reserved = reserved
         self.status = status
+        self.cpus = cpus
+        self.mem = mem
 
     def __repr__(self):
-        return f'NODE {self.name} - {self.n_gpus}x{self.gpu_model} - {self.status} ({"not " if not self.reserved else ""}reserved)'
+        return f'NODE {self.name} - {self.n_gpus}x{self.gpu_model} [{self.cpus}/{self.mem/1000}] - {self.status} ({"not " if not self.reserved else ""}reserved)'
 
 class Maintenance:
     """
@@ -34,7 +36,7 @@ class Infrastructure:
         self.gpu_limit_grp = gpu_limit_grp
         self.gpu_limit_stu = gpu_limit_stu
         self.gpu_limit_stugrp = gpu_limit_stugrp
-        self.prior = ['RTX6000', '2080', 'V100', 'RTX5000', '1080', 'P100', 'K80']
+        self.prior = ['RTX6000', '2080', 'V100', 'RTX5000', '1080', 'P100', None, 'K80']
 
     def __repr__(self):
         return "INFRASTRUCTURE\n" + "\n".join([str(x) for x in self.maintenances]) + "\n\n" + "\n".join([str(x) for x in self.nodes]) + f"\n\nlimits:({self.gpu_limit_pu}:{self.gpu_limit_grp}),({self.gpu_limit_stu}:{self.gpu_limit_stugrp})"

@@ -2,13 +2,13 @@ from view.styles import cmdstyle, _format_to
 
 midlane = "─────────── ▲ DEV ──────────────────────────────── ▼ PROD ────────────"
 
-def _joblet_format(job, width=72):
+def _joblet_format(job, width=74):
     joblet_reprs = []
     for i, joblet in enumerate(job.joblets):
         joblet_repr = ''
         joblet_repr += _format_to(job.jobid.replace('[','').replace(']','').split('%')[0], 15)
         joblet_repr += ' '
-        joblet_repr += _format_to(job.name if i == 0 else '"', width - 64, 'right')
+        joblet_repr += _format_to(job.name if i == 0 else '"', width - 65, 'right')
         joblet_repr += ' '
         joblet_repr += _format_to(job.user if i == 0 else '"', 13, 'right')
         joblet_repr += ' '
@@ -16,14 +16,16 @@ def _joblet_format(job, width=72):
         joblet_repr += ' '
         joblet_repr += _format_to(job.runtime if i == 0 else '"', 8, 'right')
         joblet_repr += ' '
-        joblet_repr += _format_to((f'{joblet.n_gpus}gpu{"s" if joblet.n_gpus > 1 else ""}' if joblet.n_gpus > 0 else "-"), 6, 'left')
+        joblet_repr += _format_to(f'{round(joblet.mem/1024)}G', 4, 'right')
+        joblet_repr += ' '
+        joblet_repr += _format_to((f'{joblet.n_gpus}gp' if joblet.n_gpus > 0 else "-"), 3, 'left')
         joblet_repr += ' '
         joblet_repr += _format_to(joblet.node if joblet.node is not None else job.reason, 11)
         joblet_reprs.append(joblet_repr)
     job_repr = '\n'.join(joblet_reprs)
     return job_repr
 
-def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None, width=72):
+def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None, width=74):
     # this is for hot reload
     if not work:
         return "UPDATE IN PROGRESS - PLZ W8 M8 B8"

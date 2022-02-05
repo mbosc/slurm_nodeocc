@@ -256,13 +256,13 @@ def main(stdscr):
         if k == ord('y'):
             stdscr.clear()
 
-        if columns < 104:
+        if columns < 106:
             try:
                 k = stdscr.getch()
             except:
                 k = ord('z')
             stdscr.addstr(1, 1, "MINIMUM TERM. WIDTH")
-            stdscr.addstr(2, 1, "REQUIRED: 104")
+            stdscr.addstr(2, 1, "REQUIRED: 106")
             stdscr.addstr(3, 1, "CURRENT: " + str(columns))
             stdscr.refresh()
             continue

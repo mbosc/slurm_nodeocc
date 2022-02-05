@@ -128,10 +128,10 @@ def _cpus_per_joblet(line):
         return cpus_n
 
 memunits = {
-    'K': 1/2e10,
-    'M': 2e0,
-    'G': 2e10,
-    'T': 2e20
+    'K': 2**-10,
+    'M': 2**0,
+    'G': 2**10,
+    'T': 2**20
 }
 
 def _mem_per_joblet(line):
@@ -152,7 +152,7 @@ def read_jobs():
     """
     Get jobs and joblets status
     """
-    squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus 2> /dev/null'
+    squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus: 2> /dev/null'
     squeue_df = pd.read_csv(StringIO(os.popen(squeue_cmd).read()), sep=';')
     squeue_df['JOBID'] = squeue_df['JOBID'].apply(lambda x: str(x))
     squeue_df = _split_column(squeue_df, 'NODELIST')

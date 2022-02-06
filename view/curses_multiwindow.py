@@ -28,6 +28,7 @@ class Singleton:
         self.rens = ""
         
         self.fetch_subscriber = []
+        self.view_mode = 'gpu'
         
     def fetch(self, a_filter):
 
@@ -107,6 +108,7 @@ class Buffer(object):
             self.screen.addstr(self.lines-2, Singleton.getInstance().xoffset + Singleton.getInstance().left_width // 2 - 6, ' ▼ SCROLL ▲ ' , curses.color_pair(2) | curses.A_REVERSE)
             Singleton.getInstance().add_button(self.lines-2, Singleton.getInstance().xoffset + 31, 'D', ord('s'))
             Singleton.getInstance().add_button(self.lines-2, Singleton.getInstance().xoffset + 40, 'U', ord('w'))
+        
         self.window.border()
         self.window.noutrefresh()
 
@@ -287,6 +289,9 @@ def main(stdscr):
         elif k == ord('w') or k == 259:
             Singleton.getInstance().voff -= 1
         outdated = outdated or time.time() - refreshtime > 2
+
+        if k == ord('g'):
+            Singleton.getInstance().view_mode = "gpu" if Singleton.getInstance().view_mode == "ram" else "ram"
         
         xoffset = 0#(columns - 104) //2
         Singleton.getInstance().xoffset = xoffset
@@ -343,6 +348,12 @@ def main(stdscr):
 
         stdscr.addstr(lines-1,left_width - 18 + 8,'[Y:REDRAW]', curses.color_pair(2))
         Singleton.getInstance().add_button(lines-1,left_width - 18 + 8,'[Y:REDRAW]', ord('y'))
+
+        stdscr.addstr(0, columns - 12, '[G:' , curses.color_pair(2))
+        stdscr.addstr(0, columns - 9, 'GPU' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().view_mode == 'gpu' else 0))
+        stdscr.addstr(0, columns - 9 + 3, 'RAM' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().view_mode == 'ram' else 0))
+        stdscr.addstr(0, columns - 9 + 6, ']' , curses.color_pair(2))
+        Singleton.getInstance().add_button(0,columns - 12,'[G:GPURAM]', ord('g'))
         
         signature = Singleton.getInstance().signature
         stdscr.addstr(lines-1,columns-2-len(signature), signature)

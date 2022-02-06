@@ -75,12 +75,18 @@ def _read_limits():
     :returns max_prod_per_user, max_prod_group, max_studentsprod_per_user, max_studentsprod_group
     """
     lims = pd.read_fwf(StringIO(os.popen(r'sacctmgr show qos format=\'name%15,maxtresperuser%25,grptres%25,maxjobsperuser\' 2>/dev/null').read())).loc[1:]
-    lims['pu'] = lims['MaxTRESPU'].apply(lambda x: int(x.split('gres/gpu=')[1].split(',')[0]) if type(x)==str and 'gres/gpu' in x else float('nan'))
-    lims['grp'] = lims['GrpTRES'].apply(lambda x: int(x.split('gres/gpu=')[1].split(',')[0]) if type(x)==str and 'gres/gpu' in x else float('nan'))
-    return (lims.loc[lims['Name'] == 'prod', 'pu'].iloc[0], 
-            lims.loc[lims['Name'] == 'prod', 'grp'].iloc[0],
-            lims.loc[lims['Name'] == 'students-prod', 'pu'].iloc[0],
-            lims.loc[lims['Name'] == 'students-prod', 'grp'].iloc[0])
+    lims['puG'] = lims['MaxTRESPU'].apply(lambda x: int(x.split('gres/gpu=')[1].split(',')[0]) if type(x)==str and 'gres/gpu' in x else float('nan'))
+    lims['grpG'] = lims['GrpTRES'].apply(lambda x: int(x.split('gres/gpu=')[1].split(',')[0]) if type(x)==str and 'gres/gpu' in x else float('nan'))
+    lims['puM'] = lims['MaxTRESPU'].apply(lambda x: parse_mem(x.split('mem=')[1].split(',')[0]) if type(x)==str and 'mem=' in x else float('nan'))
+    lims['grpM'] = lims['GrpTRES'].apply(lambda x: parse_mem(x.split('mem=')[1].split(',')[0]) if type(x)==str and 'mem=' in x else float('nan'))
+    return (lims.loc[lims['Name'] == 'prod', 'puG'].iloc[0], 
+            lims.loc[lims['Name'] == 'prod', 'grpG'].iloc[0],
+            lims.loc[lims['Name'] == 'students-prod', 'puG'].iloc[0],
+            lims.loc[lims['Name'] == 'students-prod', 'grpG'].iloc[0],
+            lims.loc[lims['Name'] == 'prod', 'puM'].iloc[0], 
+            lims.loc[lims['Name'] == 'prod', 'grpM'].iloc[0],
+            lims.loc[lims['Name'] == 'students-prod', 'puM'].iloc[0],
+            lims.loc[lims['Name'] == 'students-prod', 'grpM'].iloc[0])
 
 def read_infrastructure():
     """
@@ -89,8 +95,8 @@ def read_infrastructure():
     """
     maints, reserv = _read_maintenances()
     nodes = _read_nodes(reserv)
-    mpu, mpug, mspu, mspug = _read_limits()
-    return Infrastructure(maints, nodes, mpu, mpug, mspu, mspug)
+    mpuG, mpugG, mspuG, mspugG, mpuM, mpugM, mspuM, mspugM = _read_limits()
+    return Infrastructure(maints, nodes, (mpuG, mpugG, mspuG, mspugG), (mpuM, mpugM, mspuM, mspugM))
 
 
 def _parse_scontrol_joblet(jobid):
@@ -134,12 +140,15 @@ memunits = {
     'T': 2**20
 }
 
+def parse_mem(thing):
+    if any([l in thing for l in memunits]):
+            return float(thing[:-1]) * memunits[thing[-1]]
+    else:
+        return thing
+
 def _mem_per_joblet(line):
     if line['ST'] == 'PD':
-        if any([l in line['MIN_MEMORY'] for l in memunits]):
-            return float(line['MIN_MEMORY'][:-1]) * memunits[line['MIN_MEMORY'][-1]]
-        else:
-            return line['MIN_MEMORY']
+        return parse_mem(line['MIN_MEMORY'])
     else:
         mem_id = [x for x in _parse_scontrol_joblet(line["JOBID"]) if line["NODELIST"] in x]
         mem = sum([int(x.split('Mem=')[-1].split()[0]) for x in mem_id])

@@ -44,7 +44,7 @@ def get_all(a_filter):
 
 
         Singleton.getInstance().rens = view.slurm_list.view_list(jobs, a_filter, stylefn=view.styles.crsstyler, width=Singleton.getInstance().left_width if hasattr(Singleton.getInstance(), 'left_width') else 72)
-        Singleton.getInstance().nocc = view.slurm_viz.view_viz(inf, jobs, stylefn=view.styles.crsstyler)
+        Singleton.getInstance().nocc = view.slurm_viz.view_viz(inf, jobs, stylefn=view.styles.crsstyler, mode=Singleton.getInstance().view_mode if hasattr(Singleton.getInstance(), 'view_mode') else 'gpu')
     except:
         Singleton.getInstance().rens = 'Something went wrong'
         Singleton.getInstance().nocc = ':('

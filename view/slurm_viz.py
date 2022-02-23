@@ -172,7 +172,7 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
             next_maintenance = sorted(infrastructure.maintenances, key=lambda x: x.start_time)[0]
             time_to_maintenance = (next_maintenance.start_time - np.datetime64('now')).astype(int)
             time_to_maintenance -= (1e9 * 60 * 60) * 2 # TODO fix timezone
-            if time_to_maintenance < 0 and (next_maintenance.end_time - np.datetime64('now')).astype(int) > 0:
+            if time_to_maintenance < 0 and (next_maintenance.end_time - np.datetime64('now')).seconds > 0:
                 onmain = True
             else:
                 tt_d = int(time_to_maintenance / (1e9 * 60 * 60 * 24))
@@ -299,7 +299,7 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
             next_maintenance = sorted(infrastructure.maintenances, key=lambda x: x.start_time)[0]
             time_to_maintenance = (next_maintenance.start_time - np.datetime64('now')).astype(int)
             time_to_maintenance -= (1e9 * 60 * 60) * 2 # TODO fix timezone
-            if time_to_maintenance < 0 and (next_maintenance.end_time - np.datetime64('now')).astype(int) > 0:
+            if time_to_maintenance < 0 and (next_maintenance.end_time - np.datetime64('now')).seconds > 0:
                 onmain = True
             else:
                 tt_d = int(time_to_maintenance / (1e9 * 60 * 60 * 24))

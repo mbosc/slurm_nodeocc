@@ -16,7 +16,11 @@ def _joblet_format(job, width=74):
         joblet_repr += ' '
         joblet_repr += _format_to(job.runtime if i == 0 else '"', 8, 'right')
         joblet_repr += ' '
-        joblet_repr += _format_to(f'{round(joblet.mem/1024)}G', 4, 'right')
+        if type(joblet.mem) == str: 
+            mem = '0'
+        else:
+            mem = round(joblet.mem/1024)
+        joblet_repr += _format_to(f'{mem}G', 4, 'right')
         joblet_repr += ' '
         joblet_repr += _format_to((f'{joblet.n_gpus}gp' if joblet.n_gpus > 0 else "-"), 3, 'left')
         joblet_repr += ' '

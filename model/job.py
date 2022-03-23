@@ -30,4 +30,6 @@ class Joblet:
         self.cpus = cpus
 
     def __repr__(self):
+        if type(self.mem) == str: 
+          return f"JOBLET: {self.jobid} on {self.node} ({self.n_gpus} gpus, {self.cpus} cpus, {self.mem} Mmem)"
         return f"JOBLET: {self.jobid} on {self.node} ({self.n_gpus} gpus, {self.cpus} cpus, {self.mem/1024} Gmem)"

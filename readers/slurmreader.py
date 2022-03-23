@@ -141,6 +141,8 @@ memunits = {
 }
 
 def parse_mem(thing):
+    if thing == '0':
+        return 0
     if any([l in thing for l in memunits]):
             return float(thing[:-1]) * memunits[thing[-1]]
     else:

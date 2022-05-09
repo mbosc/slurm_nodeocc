@@ -2,8 +2,9 @@ class Job:
     """
     A simple class modelling a SLURM job
     """
-    def __init__(self, jobid, name, user, partition, state, runtime, reason) -> None:
+    def __init__(self, jobid, true_jobid, name, user, partition, state, runtime, reason) -> None:
         self.jobid = jobid
+        self.true_jobid = true_jobid
         self.name = name
         self.user = user
         self.partition = partition
@@ -22,8 +23,9 @@ class Joblet:
     of a SLURM job running on a given node
     """
     
-    def __init__(self, jobid, node, n_gpus, cpus, mem) -> None:
+    def __init__(self, jobid, true_jobid, node, n_gpus, cpus, mem) -> None:
         self.jobid = jobid
+        self.true_jobid = true_jobid
         self.node = node
         self.n_gpus = int(n_gpus)
         self.mem = mem

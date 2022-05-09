@@ -29,6 +29,7 @@ class Singleton:
         
         self.fetch_subscriber = []
         self.view_mode = 'gpu'
+        self.job_id_type = 'agg'
         
     def fetch(self, a_filter):
 
@@ -292,6 +293,8 @@ def main(stdscr):
 
         if k == ord('g'):
             Singleton.getInstance().view_mode = "gpu" if Singleton.getInstance().view_mode == "ram" else "ram"
+        if k == ord('j'):
+            Singleton.getInstance().job_id_type = "true" if Singleton.getInstance().job_id_type == "agg" else "agg"
         
         xoffset = 0#(columns - 104) //2
         Singleton.getInstance().xoffset = xoffset
@@ -354,6 +357,12 @@ def main(stdscr):
         stdscr.addstr(0, columns - 9 + 3, 'RAM' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().view_mode == 'ram' else 0))
         stdscr.addstr(0, columns - 9 + 6, ']' , curses.color_pair(2))
         Singleton.getInstance().add_button(0,columns - 12,'[G:GPURAM]', ord('g'))
+
+        stdscr.addstr(lines-1, xoffset + 20 + 2, '[J:' , curses.color_pair(2))
+        stdscr.addstr(lines-1, xoffset + 20 + 2+3, 'AGG' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().job_id_type == 'agg' else 0))
+        stdscr.addstr(lines-1, xoffset + 20 + 2+3+3, 'TRUE' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().job_id_type == 'true' else 0))
+        stdscr.addstr(lines-1, xoffset + 20 + 2+3+3+4, ']' , curses.color_pair(2))
+        Singleton.getInstance().add_button(lines-1,xoffset+20+2,'[J:AGGTRUE]', ord('j'))
         
         signature = Singleton.getInstance().signature
         stdscr.addstr(lines-1,columns-2-len(signature), signature)

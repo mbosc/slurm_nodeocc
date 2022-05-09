@@ -4,7 +4,8 @@ import pandas as pd
 from model.infrastructure import Node, Maintenance, Infrastructure
 from model.job import Job, Joblet
 
-joblet_cache = {}
+joblet_node_cache = {}
+joblet_array_cache = {}
 
 def _ungroup_slurm_names(x):
     if '[' in x:
@@ -99,17 +100,29 @@ def read_infrastructure():
     return Infrastructure(maints, nodes, (mpuG, mpugG, mspuG, mspugG), (mpuM, mpugM, mspuM, mspugM))
 
 
-def _parse_scontrol_joblet(jobid):
-    global joblet_cache
-    if jobid not in joblet_cache:
+def _parse_scontrol_joblet_nodes(jobid):
+    global joblet_node_cache
+    if jobid not in joblet_node_cache:
         jobline = f'scontrol show jobid -d {jobid} | grep \' Nodes=\''
         joblet_id = os.popen(jobline).read().splitlines()
-        joblet_cache[jobid] = joblet_id
-    return joblet_cache[jobid]
+        joblet_node_cache[jobid] = joblet_id
+    return joblet_node_cache[jobid]
+
+def _parse_scontrol_joblet_arrays(jobid):
+    global joblet_array_cache
+    if jobid not in joblet_array_cache:
+        jobline = f'scontrol show jobid -d {jobid} 2>/dev/null | grep Array '
+        joblet_id = os.popen(jobline).read().splitlines()
+        joblet_array_cache[jobid] = joblet_id
+    return joblet_array_cache[jobid]
+
+
 
 def _purge_cache():
-    global joblet_cache
-    joblet_cache = {}
+    global joblet_node_cache
+    global joblet_array_cache
+    joblet_node_cache = {}
+    joblet_array_cache = {}
 
 def _gpus_per_joblet(line):
     if pd.isna(line['gpus_per_job']) and pd.isna(line['gpus_per_node']) and pd.isna(line['gpus_per_task']):
@@ -119,7 +132,7 @@ def _gpus_per_joblet(line):
     else:
         if line['ST'] == 'PD':
             return line['gpus_per_job'] if not pd.isna(line['gpus_per_job']) else line['gpus_per_task']
-        gpus_id = [x for x in _parse_scontrol_joblet(line["JOBID"]) if line["NODELIST"] in x]
+        gpus_id = [x for x in _parse_scontrol_joblet_nodes(line["JOBID"]) if line["NODELIST"] in x]
         gpus_id = sum([x.split('IDX:')[-1].split(')')[0].split(',') for x in gpus_id if 'gpu' in x], [])
         gpus_n = len(gpus_id) + sum([len(range(int(x.split('-')[1].split()[0]) - int(x.split('-')[0]))) for x in gpus_id if '-' in x])
         return gpus_n
@@ -128,7 +141,7 @@ def _cpus_per_joblet(line):
     if line['ST'] == 'PD':
         return line['MIN_CPUS']
     else:
-        cpus_id = [x for x in _parse_scontrol_joblet(line["JOBID"]) if line["NODELIST"] in x]
+        cpus_id = [x for x in _parse_scontrol_joblet_nodes(line["JOBID"]) if line["NODELIST"] in x]
         cpus = sum([x.split('CPU_IDs=')[-1].split()[0].split(',') for x in cpus_id], [])
         cpus_n = len(cpus) + sum([len(range(int(x.split('-')[1].split()[0]) - int(x.split('-')[0]))) for x in cpus if '-' in x])
         return cpus_n
@@ -152,9 +165,20 @@ def _mem_per_joblet(line):
     if line['ST'] == 'PD':
         return parse_mem(line['MIN_MEMORY'])
     else:
-        mem_id = [x for x in _parse_scontrol_joblet(line["JOBID"]) if line["NODELIST"] in x]
+        mem_id = [x for x in _parse_scontrol_joblet_nodes(line["JOBID"]) if line["NODELIST"] in x]
         mem = sum([int(x.split('Mem=')[-1].split()[0]) for x in mem_id])
         return mem
+
+def _true_jobid(line):
+    
+    try:
+        base_jid = line.split('_')[0]
+        tid = line.split('_')[1]
+        tj = _parse_scontrol_joblet_arrays(line)
+        assert len(tj) == 1
+        return tj[0].split('JobId=')[1].split(' ')[0]
+    except:
+        return line
 
 def _node_preproc(x):
     return x.replace('aimagelab-srv-', '')
@@ -173,10 +197,11 @@ def read_jobs():
     squeue_df['joblet_gpus'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'gpus_per_task', 'TASKS', 'NODELIST', 'NODES', 'JOBID', 'ST']].apply(_gpus_per_joblet, axis=1)
     squeue_df['joblet_cpus'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'gpus_per_task', 'TASKS', 'NODELIST', 'NODES', 'JOBID', 'ST', 'MIN_CPUS']].apply(_cpus_per_joblet, axis=1)
     squeue_df['joblet_mem'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'gpus_per_task', 'TASKS', 'NODELIST', 'NODES', 'JOBID', 'ST', 'MIN_MEMORY']].apply(_mem_per_joblet, axis=1)
+    squeue_df['TRUE_JOBID'] = squeue_df['JOBID'].apply(_true_jobid)
     _purge_cache()
-    joblets = squeue_df.apply(lambda line: Joblet(line['JOBID'], _node_preproc(line['NODELIST']) if not pd.isna(line['NODELIST']) else None, line['joblet_gpus'], line['joblet_cpus'], line['joblet_mem']), axis=1).tolist()
+    joblets = squeue_df.apply(lambda line: Joblet(line['JOBID'], line['TRUE_JOBID'], _node_preproc(line['NODELIST']) if not pd.isna(line['NODELIST']) else None, line['joblet_gpus'], line['joblet_cpus'], line['joblet_mem']), axis=1).tolist()
     jobs = squeue_df.drop_duplicates('JOBID').apply(lambda line: Job(
-        line['JOBID'], line['NAME'], line['USER'],
+        line['JOBID'], line['TRUE_JOBID'], line['NAME'], line['USER'],
         line['PARTITION'], line['ST'], line['TIME'], line['REASON']
         ), axis=1).tolist()
 

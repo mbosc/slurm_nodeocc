@@ -65,7 +65,10 @@ def _read_maintenances():
     reservations['StartTime'] = pd.to_datetime(reservations['StartTime'])
     reservations['EndTime'] = pd.to_datetime(reservations['EndTime'])
     reservations = _split_column(reservations, 'Nodes')
-    maint_flag = reservations['Flags'].str.contains('MAINT') #| reservations['ReservationName'].str.contains('limit_temp')
+    maint_flag = reservations['Flags'].str.contains('MAINT') & \
+        reservations['Flags'].str.contains('SPEC_NODES') & \
+        reservations['Flags'].str.contains('ALL_NODES')
+        #| reservations['ReservationName'].str.contains('limit_temp')
     
     maintenances = _maint_from_reservations(reservations[maint_flag])
     return maintenances, reservations[(~maint_flag) & (reservations['State'] == 'ACTIVE')]

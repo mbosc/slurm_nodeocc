@@ -16,7 +16,20 @@ class Job:
     def __repr__(self):
         return f"JOB: {self.jobid} - {self.name} ({self.user}) [{self.reason}]\n" + \
             '\n'.join(['\t' + str(x) for x in self.joblets])
-
+    
+    @property
+    def __dict__(self):
+        return {
+            'jobid': self.jobid,
+            'true_jobid': self.true_jobid,
+            'name': self.name,
+            'user': self.user,
+            'partition': self.partition,
+            'state': self.state,
+            'runtime': self.runtime,
+            'joblets': [x.__dict__ for x in self.joblets],
+            'reason': self.reason
+        }
 class Joblet:
     """
     A simple class modelling the portion

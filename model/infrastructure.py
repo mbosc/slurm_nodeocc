@@ -8,12 +8,13 @@ class Node:
         self.n_gpus = n_gpus
         self.gpu_model = gpu_model
         self.reserved = reserved
+        assert reserved in ['no', 'yes', 'pending']
         self.status = status
         self.cpus = cpus
         self.mem = mem
 
     def __repr__(self):
-        return f'NODE {self.name} - {self.n_gpus}x{self.gpu_model} [{self.cpus}/{self.mem/1000}] - {self.status} ({"not " if not self.reserved else ""}reserved)'
+        return f'NODE {self.name} - {self.n_gpus}x{self.gpu_model} [{self.cpus}/{self.mem/1000}] - {self.status} ({self.reserved} reserv)'
 
 class Maintenance:
     """

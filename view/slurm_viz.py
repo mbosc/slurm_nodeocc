@@ -73,6 +73,7 @@ chunga= '''⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣧⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀
 gpu_avail = '□'
 gpu_occ = '■'
 gpu_drain = '△'
+gpu_pendr = '⧖'
 gpu_down = '⨯'
 gpu_paused = '◆'
 gpu_name_chars = 12
@@ -84,6 +85,7 @@ ram_occ = '█' # '▄'#
 ram_occ_alt = '▀'
 ram_avail = '░'
 ram_drain = '△'
+ram_pendr ='⧖'
 ram_paused = '▚'
 ram_down = '⨯'
 
@@ -148,7 +150,7 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
                         icon = ram_paused if j.state == 'S' else ram_occ
                         st = icon * get_ram_block(jj.mem)
                         joblet_icons.append((st, user_styles[j.user] if j.user in user_styles else None))
-            joblet_icons += [(ram_drain if n.status == 'drain' else (ram_down if n.status == 'down' else ram_avail), None)] * get_ram_block(n.mem - occs)
+            joblet_icons += [(ram_drain if n.status == 'drain' else (ram_down if n.status == 'down' else (ram_pendr if n.reserved == 'pending' else ram_avail)), None)] * get_ram_block(n.mem - occs)
             
             jobsplit = [""]
             count = 0
@@ -164,7 +166,7 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
             jobsplit[-1] += f'{to_font(int((n.mem-occs) / 1024))}'
 
             for i,l in enumerate(jobsplit):
-                RetScope.return_string += f'{_format_to(n.name if i == 0 else "", gpu_name_chars, "right")}{"(" if n.reserved and i == 0 else " "}{l}{")" if n.reserved and i == (len(jobsplit) - 1) else ""}\n'
+                RetScope.return_string += f'{_format_to(n.name if i == 0 else "", gpu_name_chars, "right")}{"(" if n.reserved == "yes" and i == 0 else " "}{l}{")" if n.reserved == "yes" and i == (len(jobsplit) - 1) else ""}\n'
 
         # verify maintenance status
         onmain = False
@@ -276,7 +278,7 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
                         icon = gpu_paused if j.state == 'S' else gpu_occ
                         st = icon + (('+' if len(j.joblets) > 1 else '-') + icon) * (jj.n_gpus-1)
                         joblet_icons.append((st, user_styles[j.user] if j.user in user_styles else None))
-            joblet_icons += [(gpu_drain if n.status == 'drain' else (gpu_down if n.status == 'down' else gpu_avail), None)] * (n.n_gpus - occs)
+            joblet_icons += [(gpu_drain if n.status == 'drain' else (gpu_down if n.status == 'down' else (gpu_pendr if n.reserved == 'pending' else gpu_avail)), None)] * (n.n_gpus - occs)
             
             joblet_icons = [(ji[0] + (' ' if i != len(joblet_icons)-1 else ''), ji[1]) for i, ji in enumerate(joblet_icons)]
 
@@ -291,7 +293,7 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
                     count += 1
 
             for i,l in enumerate(jobsplit):
-                RetScope.return_string += f'{_format_to(n.name if i == 0 else "", gpu_name_chars, "right")}{"(" if n.reserved and i == 0 else " "}{l}{")" if n.reserved and i == (len(jobsplit) - 1) else ""}\n'
+                RetScope.return_string += f'{_format_to(n.name if i == 0 else "", gpu_name_chars, "right")}{"(" if n.reserved == "yes" and i == 0 else " "}{l}{")" if n.reserved == "yes" and i == (len(jobsplit) - 1) else ""}\n'
 
         # verify maintenance status
         onmain = False

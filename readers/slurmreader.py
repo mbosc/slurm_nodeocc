@@ -34,15 +34,16 @@ def _node_from_sinfo(x):
     return n
 
 
-def _read_nodes(reservations):
+def _read_nodes(reservations, pending_res):
     sinfo_df = pd.read_csv(StringIO(os.popen(r'sinfo -N -o "%N;%G;%t;%m;%c"').read()), sep=';')
     sinfo_df = _split_column(sinfo_df, 'NODELIST').drop_duplicates()    
     sinfo_df['n_gpu'] = sinfo_df['GRES'].str.split(':').apply(lambda x: 0 if x[0] == '(null)' else int(x[-1]))
     sinfo_df['m_gpu'] = sinfo_df['GRES'].str.split(':').apply(lambda x: 'n/a' if x[0] == '(null)' else x[1])
+    sinfo_df['reserved'] = 'no'
     if reservations is not None:
-        sinfo_df['reserved'] = sinfo_df['NODELIST'].isin(reservations.Nodes.unique())
-    else:
-        sinfo_df['reserved'] = False
+        sinfo_df.loc[sinfo_df['NODELIST'].isin(reservations.Nodes.unique()), 'reserved'] = 'yes'
+    if pending_res is not None:
+        sinfo_df.loc[sinfo_df['NODELIST'].isin(pending_res.Nodes.unique()), 'reserved'] = 'pending'
     
     return sinfo_df.apply(_node_from_sinfo, axis=1).tolist()
 
@@ -71,7 +72,7 @@ def _read_maintenances():
         #| reservations['ReservationName'].str.contains('limit_temp')
     
     maintenances = _maint_from_reservations(reservations[maint_flag])
-    return maintenances, reservations[(~maint_flag) & (reservations['State'] == 'ACTIVE')]
+    return maintenances, reservations[(~maint_flag) & (reservations['State'] == 'ACTIVE')], reservations[(~maint_flag) & (reservations['State'] == 'INACTIVE')]
 
 def _read_limits():
     """
@@ -97,8 +98,8 @@ def read_infrastructure():
     Get infrastructure status (nodes, reservations,
     maintenances, resource limits, etc)
     """
-    maints, reserv = _read_maintenances()
-    nodes = _read_nodes(reserv)
+    maints, reserv, pending_res = _read_maintenances()
+    nodes = _read_nodes(reserv, pending_res)
     mpuG, mpugG, mspuG, mspugG, mpuM, mpugM, mspuM, mspugM = _read_limits()
     return Infrastructure(maints, nodes, (mpuG, mpugG, mspuG, mspugG), (mpuM, mpugM, mspuM, mspugM))
 

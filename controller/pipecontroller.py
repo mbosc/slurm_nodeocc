@@ -21,7 +21,7 @@ while True:
     combo.inf = inf.__dict__
     combo.jobs = [j.__dict__ for j in jobs]
 
-    print('Sending data...')
+    print('Sending data...', time.time())
     with open(f'/tmp/noccfifo_{username}', 'w') as f:
         f.write(json.dumps(combo.__dict__) + '\n')
-    print('Wrote to fifo')
+    print('Wrote to fifo', time.time())

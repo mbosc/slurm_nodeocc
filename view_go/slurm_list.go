@@ -7,7 +7,6 @@ import (
 	// "github.com/brianvoe/gofakeit"
 
 	table "github.com/calyptia/go-bubble-table"
-	"github.com/charmbracelet/bubbles/stopwatch"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
@@ -34,7 +33,8 @@ type newDataMsg struct {
 }
 
 func runPipeReader() tea.Msg {
-	Joblets, Jobs := GetDump(os.Getenv("USER")).GetJoblets()
+	// fmt.Println("runPipeReader on file " + "/tmp/noccfifo_" + os.Getenv("USER"))
+	Joblets, Jobs := GetDump("/tmp/noccfifo_" + os.Getenv("USER")).GetJoblets()
 	return newDataMsg{Joblets, Jobs}
 }
 
@@ -66,19 +66,15 @@ func initialModel() model {
 	h = h - top - bottom
 	tbl := table.New([]string{"ID", "NAME", "USER", "ST", "TIME", "MEM", "GP", "REASON"}, w, h)
 
-	// fillTable(&tbl)
-	sw := stopwatch.NewWithInterval(1e9)
-
-	return model{table: tbl, stopwatch: sw}
+	return model{table: tbl}
 }
 
 type model struct {
-	table     table.Model
-	stopwatch stopwatch.Model
+	table table.Model
 }
 
 func (m model) Init() tea.Cmd {
-	return m.stopwatch.Init()
+	return runPipeReader
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

@@ -76,9 +76,9 @@ func (d Dump) GetJoblets() ([]Joblet, []Job) {
 	return joblets, jobs
 }
 
-func GetDump() Dump {
+func GetDump(filename string) Dump {
 	// Open our jsonFile
-	jsonFile, err := os.Open("../nocc.txt")
+	jsonFile, err := os.Open(filename)
 	// if we os.Open returns an error then handle it
 	if err != nil {
 		fmt.Println(err)

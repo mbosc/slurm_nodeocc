@@ -7,6 +7,7 @@ import (
 	// "github.com/brianvoe/gofakeit"
 
 	table "github.com/calyptia/go-bubble-table"
+	"github.com/charmbracelet/bubbles/stopwatch"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
@@ -24,6 +25,36 @@ var (
 	styleDoc = lipgloss.NewStyle().Padding(1)
 )
 
+// TODO
+// - replace stopwatch with pipe reader
+
+type newDataMsg struct {
+	Joblets []Joblet
+	Jobs    []Job
+}
+
+func runPipeReader() tea.Msg {
+	Joblets, Jobs := GetDump(os.Getenv("USER")).GetJoblets()
+	return newDataMsg{Joblets, Jobs}
+}
+
+func fillTable(tbl *table.Model, joblets []Joblet, jobs []Job) {
+	rows := make([]table.Row, len(joblets))
+	for i := 0; i < len(joblets); i++ {
+		rows[i] = table.SimpleRow{
+			joblets[i].JobId,
+			jobs[i].Name,
+			jobs[i].User,
+			jobs[i].State,
+			jobs[i].Runtime,
+			joblets[i].Mem,
+			joblets[i].NGpus,
+			jobs[i].Reason,
+		}
+	}
+	tbl.SetRows(rows)
+}
+
 func initialModel() model {
 	w, h, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
@@ -35,35 +66,26 @@ func initialModel() model {
 	h = h - top - bottom
 	tbl := table.New([]string{"ID", "NAME", "USER", "ST", "TIME", "MEM", "GP", "REASON"}, w, h)
 
-	Joblets, Jobs := GetDump().GetJoblets()
+	// fillTable(&tbl)
+	sw := stopwatch.NewWithInterval(1e9)
 
-	rows := make([]table.Row, len(Joblets))
-	for i := 0; i < len(Joblets); i++ {
-		rows[i] = table.SimpleRow{
-			Joblets[i].JobId,
-			Jobs[i].Name,
-			Jobs[i].User,
-			Jobs[i].State,
-			Jobs[i].Runtime,
-			Joblets[i].Mem,
-			Joblets[i].NGpus,
-			Jobs[i].Reason,
-		}
-	}
-	tbl.SetRows(rows)
-	return model{table: tbl}
+	return model{table: tbl, stopwatch: sw}
 }
 
 type model struct {
-	table table.Model
+	table     table.Model
+	stopwatch stopwatch.Model
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return m.stopwatch.Init()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case newDataMsg:
+		fillTable(&m.table, msg.Joblets, msg.Jobs)
+		return m, runPipeReader
 	case tea.WindowSizeMsg:
 		top, right, bottom, left := styleDoc.GetPadding()
 		m.table.SetSize(

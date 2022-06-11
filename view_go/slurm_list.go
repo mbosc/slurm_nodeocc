@@ -13,6 +13,7 @@ import (
 )
 
 func main() {
+	os.Setenv("TERM", "xterm-256color")
 	err := tea.NewProgram(initialModel(), tea.WithAltScreen()).Start()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

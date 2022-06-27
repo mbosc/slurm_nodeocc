@@ -61,7 +61,7 @@ def _read_maintenances():
     reservations = os.popen(r'scontrol show reservation 2>/dev/null').read().split('\n\n')
     reservations = [{c.split('=')[0]:c.split('=')[1] for c in r.split()} for r in reservations if len(r) and '=' in r]
     if not len(reservations):
-        return [], None
+        return [], None, None
     reservations = pd.DataFrame.from_records(reservations)
     reservations['StartTime'] = pd.to_datetime(reservations['StartTime'])
     reservations['EndTime'] = pd.to_datetime(reservations['EndTime'])

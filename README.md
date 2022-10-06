@@ -1,5 +1,5 @@
 # Slurm NodeOCC
-
+![screenshot](sshot.jpg)
 TUI application for viewing the status of GPU allocations on a Slurm cluster
 
 Contents:

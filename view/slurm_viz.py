@@ -200,8 +200,8 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
             cust_print('')
 
         # print summary
-        # cust_print(' '.join([' ['+ ram_occ + 'run', paused + 'hld', drain + 'drn', down + 'dwn', '()res]']))
-        cust_print(' '.join(['['+ ram_occ + f'{mem_size}{mem_unit}', ram_paused + 'hld', ram_drain + 'drn', ram_down + 'dwn', '()res]']))
+        # cust_print(''.join([' ['+ ram_occ + 'run', paused + 'hld', drain + 'drn', down + 'dwn', '()res]']))
+        cust_print(''.join(['['+ ram_occ + f'{mem_size}{mem_unit}', ram_paused + 'hld', ram_drain + 'drn', ram_pendr + 'pnd',  ram_down + 'dwn', '()res]']))
         gpuc = 'GREEN'
         # if infrastructure.gpu_limit_pu > 3:
         #     gpuc = 'YELLOW'
@@ -327,7 +327,7 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
             cust_print('')
 
         # print summary
-        cust_print(' '.join([' ['+ gpu_occ + 'run', gpu_paused + 'hld', gpu_drain + 'drn', gpu_down + 'dwn', '()res]']))
+        cust_print(''.join([' ['+ gpu_occ + 'run', gpu_paused + 'hld', gpu_drain + 'drn', gpu_pendr + 'pnd', gpu_down + 'dwn', '()res]']))
         gpuc = 'RED'
         if infrastructure.gpu_limit_pu > 3:
             gpuc = 'YELLOW'

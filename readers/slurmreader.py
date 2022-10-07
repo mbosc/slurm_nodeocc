@@ -18,7 +18,7 @@ def _ungroup_slurm_names(x):
 def _split_column(df, column):
     # flatten representation
     node_flat = pd.DataFrame([[i, x] 
-               for i, y in df[column].fillna('').apply(_ungroup_slurm_names).str.split(',').iteritems() 
+               for i, y in df[column].fillna('').apply(_ungroup_slurm_names).str.split(',').items() 
                     for x in y], columns=['__I', column]).set_index('__I')
     node_flat[column] = node_flat[column].replace('', float('nan'))
     return node_flat.merge(df[[x for x in df.columns if x != column]], left_index=True, right_index=True).reset_index(drop=True)

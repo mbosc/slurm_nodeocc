@@ -17,8 +17,8 @@ def _ungroup_slurm_names(x):
 
 def _split_column(df, column):
     # flatten representation
-    node_flat = pd.DataFrame([[i, x] 
-               for i, y in df[column].fillna('').apply(_ungroup_slurm_names).str.split(',').items() 
+    node_flat = pd.DataFrame([[i, x]
+               for i, y in df[column].fillna('').apply(_ungroup_slurm_names).str.split(',').items()
                     for x in y], columns=['__I', column]).set_index('__I')
     node_flat[column] = node_flat[column].replace('', float('nan'))
     return node_flat.merge(df[[x for x in df.columns if x != column]], left_index=True, right_index=True).reset_index(drop=True)
@@ -36,15 +36,15 @@ def _node_from_sinfo(x):
 
 def _read_nodes(reservations, pending_res):
     sinfo_df = pd.read_csv(StringIO(os.popen(r'sinfo -N -o "%N;%G;%t;%m;%c"').read()), sep=';')
-    sinfo_df = _split_column(sinfo_df, 'NODELIST').drop_duplicates()    
-    sinfo_df['n_gpu'] = sinfo_df['GRES'].apply(lambda x: 0 if x.split('(')[0].split(':')[0] == '(null)' else int(x.split('(')[0].split(':')[-1]))
-    sinfo_df['m_gpu'] = sinfo_df['GRES'].str.split(':').apply(lambda x: 'n/a' if x[0] == '(null)' else x[1])
+    sinfo_df = _split_column(sinfo_df, 'NODELIST').drop_duplicates()
+    sinfo_df['n_gpu'] = sinfo_df['GRES'].apply(lambda x: 0 if x.split('(')[0].split(':')[0] in ('(null)','') else int(x.split('(')[0].split(':')[-1]))
+    sinfo_df['m_gpu'] = sinfo_df['GRES'].str.split(':').apply(lambda x: 'n/a' if x[0] in ('(null)', '') else x[1])
     sinfo_df['reserved'] = 'no'
     if reservations is not None:
         sinfo_df.loc[sinfo_df['NODELIST'].isin(reservations.Nodes.unique()), 'reserved'] = 'yes'
     if pending_res is not None:
         sinfo_df.loc[sinfo_df['NODELIST'].isin(pending_res.Nodes.unique()), 'reserved'] = 'pending'
-    
+
     return sinfo_df.apply(_node_from_sinfo, axis=1).tolist()
 
 
@@ -70,7 +70,7 @@ def _read_maintenances():
         reservations['Flags'].str.contains('SPEC_NODES') & \
         reservations['Flags'].str.contains('ALL_NODES')
         #| reservations['ReservationName'].str.contains('limit_temp')
-    
+
     maintenances = _maint_from_reservations(reservations[maint_flag])
     return maintenances, reservations[(~maint_flag) & (reservations['State'] == 'ACTIVE')], reservations[(~maint_flag) & (reservations['State'] == 'INACTIVE')]
 
@@ -84,11 +84,11 @@ def _read_limits():
     lims['grpG'] = lims['GrpTRES'].apply(lambda x: int(x.split('gres/gpu=')[1].split(',')[0]) if type(x)==str and 'gres/gpu' in x else float('nan'))
     lims['puM'] = lims['MaxTRESPU'].apply(lambda x: parse_mem(x.split('mem=')[1].split(',')[0]) if type(x)==str and 'mem=' in x else float('nan'))
     lims['grpM'] = lims['GrpTRES'].apply(lambda x: parse_mem(x.split('mem=')[1].split(',')[0]) if type(x)==str and 'mem=' in x else float('nan'))
-    return (lims.loc[lims['Name'] == 'prod', 'puG'].iloc[0], 
+    return (lims.loc[lims['Name'] == 'prod', 'puG'].iloc[0],
             lims.loc[lims['Name'] == 'prod', 'grpG'].iloc[0],
             lims.loc[lims['Name'] == 'students-prod', 'puG'].iloc[0],
             lims.loc[lims['Name'] == 'students-prod', 'grpG'].iloc[0],
-            lims.loc[lims['Name'] == 'prod', 'puM'].iloc[0], 
+            lims.loc[lims['Name'] == 'prod', 'puM'].iloc[0],
             lims.loc[lims['Name'] == 'prod', 'grpM'].iloc[0],
             lims.loc[lims['Name'] == 'students-prod', 'puM'].iloc[0],
             lims.loc[lims['Name'] == 'students-prod', 'grpM'].iloc[0])
@@ -174,7 +174,7 @@ def _mem_per_joblet(line):
         return mem
 
 def _true_jobid(line):
-    
+
     try:
         base_jid = line.split('_')[0]
         tid = line.split('_')[1]

@@ -127,10 +127,14 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
         highlighted_users += pd.DataFrame([(j.user, sum([get_ram_block(x.mem) for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ['R', 'S']]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
 
         user_styles = dict(zip(highlighted_users, ['RED','YELLOW','GREEN','MAGENTA','BLUE']))
-        students = [j.user for j in jobs if 'students' in j.partition]
+        students = [j.user for j in jobs if 'students' in j.partition and 'cvcs' not in j.account.lower()]
         for s in students:
             user_styles[s] = 'CYAN'
-        
+
+        cvcs_students = [j.user for j in jobs if 'cvcs' in j.account.lower()]
+        for s in cvcs_students:
+            user_styles[s] = 'BG_CYAN'
+
         stalled_jobs = sum([j.state == 'S' for j in jobs])
         total_jobs_prod = 0
         total_jobs_stud = 0
@@ -218,10 +222,11 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
 
         # print user list
         for u, c in user_styles.items():
-            if c == 'CYAN':
+            if c == 'CYAN' or c == 'BG_CYAN':
                 continue
             cust_print(f" {stylefn(c, gpu_occ)} {stylefn('CYAN', u) if any(['stu' in j.partition for j in jobs if j.user == u]) else u} ({int(round(sum([sum([jj.mem / 1024 for jj in j.joblets if jj.node is not None]) for j in jobs if j.user == u])))}{mem_unit})")
         cust_print(f" {stylefn('CYAN', gpu_occ)} {stylefn('CYAN', 'students')}")
+        cust_print(f" {stylefn('BG_CYAN', gpu_occ)} {stylefn('BG_CYAN', 'cvcs')}")
         
     else: # if infrastrcture_down
         # print emergency screen
@@ -253,10 +258,14 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
         highlighted_users += pd.DataFrame([(j.user, sum([x.n_gpus for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ['R', 'S']]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
 
         user_styles = dict(zip(highlighted_users, ['RED','YELLOW','GREEN','MAGENTA','BLUE']))
-        students = [j.user for j in jobs if 'students' in j.partition]
+        students = [j.user for j in jobs if 'students' in j.partition and 'cvcs' not in j.account.lower()]
         for s in students:
             user_styles[s] = 'CYAN'
         
+        cvcs_students = [j.user for j in jobs if 'cvcs' in j.account.lower()]
+        for s in cvcs_students:
+            user_styles[s] = 'BG_CYAN'
+
         stalled_jobs = sum([j.state == 'S' for j in jobs])
         total_jobs_prod = 0
         total_jobs_stud = 0
@@ -338,10 +347,11 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
 
         # print user list
         for u, c in user_styles.items():
-            if c == 'CYAN':
+            if c == 'CYAN' or c == 'BG_CYAN':
                 continue
             cust_print(f" {stylefn(c, gpu_occ)} {stylefn('CYAN', u) if any(['stu' in j.partition for j in jobs if j.user == u]) else u} ({sum([sum([jj.n_gpus for jj in j.joblets if jj.node is not None]) for j in jobs if j.user == u])})")
         cust_print(f" {stylefn('CYAN', gpu_occ)} {stylefn('CYAN', 'students')}")
+        cust_print(f" {stylefn('BG_CYAN', gpu_occ)} {stylefn('BG_CYAN', 'cvcs')}")
         
     else: # if infrastrcture_down
         # print emergency screen

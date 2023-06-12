@@ -26,6 +26,7 @@ def cmdstyle(color, string):
         'LWHITE' : lambda x: '\033[97m' + str(x) + '\033[0m',
         
         'CYAN' : lambda x: '\033[36m' + str(x) + '\033[0m',
+        'BG_CYAN': lambda x: '\033[33m' + str(x) + '\033[0m',
         'WHITE' : lambda x: '\033[37m' + str(x) + '\033[0m',
 
         'BG_RED': lambda x: '\033[41m\033[37m' + str(x) + '\033[0m',
@@ -55,8 +56,10 @@ def crsstyler(color, string):
         'LBLUE' : lambda x: str(x),
         'LCYAN' : lambda x: str(x),
         'LWHITE' : lambda x: str(x),
+        'LBG_CYAN' : lambda x: str(x),
         
         'CYAN' : lambda x: '<*8~' + str(x) + ':*>',
+        'BG_CYAN': lambda x: '<*15~' + str(x) + ':*>',
         'WHITE' : lambda x: '<*2~' + str(x) + ':*>',
 
         'BG_RED':       lambda x: '<*10~' + str(x) + ':*>',

@@ -191,7 +191,7 @@ def read_jobs():
     """
     Get jobs and joblets status
     """
-    squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus: 2> /dev/null'
+    squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus:\;,Account: 2> /dev/null'
     squeue_df = pd.read_csv(StringIO(os.popen(squeue_cmd).read()), sep=';')
     squeue_df['JOBID'] = squeue_df['JOBID'].apply(lambda x: str(x))
     squeue_df = _split_column(squeue_df, 'NODELIST')
@@ -206,7 +206,8 @@ def read_jobs():
     joblets = squeue_df.apply(lambda line: Joblet(line['JOBID'], line['TRUE_JOBID'], _node_preproc(line['NODELIST']) if not pd.isna(line['NODELIST']) else None, line['joblet_gpus'], line['joblet_cpus'], line['joblet_mem']), axis=1).tolist()
     jobs = squeue_df.drop_duplicates('JOBID').apply(lambda line: Job(
         line['JOBID'], line['TRUE_JOBID'], line['NAME'], line['USER'],
-        line['PARTITION'], line['ST'], line['TIME'], line['REASON']
+        line['PARTITION'], line['ST'], line['TIME'], line['REASON'],
+        line['ACCOUNT']
         ), axis=1).tolist()
 
     for j in jobs:

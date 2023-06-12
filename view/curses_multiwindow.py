@@ -4,7 +4,7 @@ import time
 import curses
 import threading
 
-a_filter_values = [None, 'me', 'prod', 'stud']
+a_filter_values = [None, 'me', 'prod', 'stud', 'cvcs']
 
 class Singleton:
     __instance = None
@@ -164,6 +164,8 @@ def main(stdscr):
     curses.init_pair(13, 5, -1)
     # curses.init_pair(13, curses.COLOR_WHITE, curses.COLOR_MAGENTA)
 
+    curses.init_pair(15, -1, 6)
+    # curses.init_pair(13, curses.COLOR_WHITE, curses.COLOR_CYAN)
     # status
     k = -1
     refreshtime = time.time() - 60
@@ -259,13 +261,13 @@ def main(stdscr):
         if k == ord('y'):
             stdscr.clear()
 
-        if columns < 106:
+        if columns < 122:
             try:
                 k = stdscr.getch()
             except:
                 k = ord('z')
             stdscr.addstr(1, 1, "MINIMUM TERM. WIDTH")
-            stdscr.addstr(2, 1, "REQUIRED: 106")
+            stdscr.addstr(2, 1, "REQUIRED: 122")
             stdscr.addstr(3, 1, "CURRENT: " + str(columns))
             stdscr.refresh()
             continue
@@ -278,7 +280,7 @@ def main(stdscr):
             outdated = True
         # LEFT
         elif k == ord('a') or k == 260:
-            a_filter = (a_filter + 3) % len(a_filter_values)
+            a_filter = (a_filter + (len(a_filter_values)-1)) % len(a_filter_values)
             Singleton.getInstance().voff = 0
             outdated = True
         elif valid_mouse and type(k) == str and k.startswith('AF_'):
@@ -312,7 +314,6 @@ def main(stdscr):
             s_columns = columns
             s_lines = lines
             
-        half_width = int(columns / 2)
         stdscr.refresh()
 
         left_width = columns - 33 #72
@@ -342,9 +343,17 @@ def main(stdscr):
         Singleton.getInstance().add_button(lines-1,xoffset + 1 + 9, 'PROD', 'AF_2')
         stdscr.addstr(lines-1,xoffset + 1 + 14,'STUD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[a_filter] == 'stud' else 0))
         Singleton.getInstance().add_button(lines-1,xoffset + 1 + 14,'STUD', 'AF_3')
-        stdscr.addstr(lines-1,xoffset + 1 + 19, '▶')
-        Singleton.getInstance().add_button(lines-1,xoffset + 1 + 19, '▶', ord('d'))
-        stdscr.addstr(lines-1,xoffset + 1 + 20, ' ' * (columns - 22 - xoffset))
+        stdscr.addstr(lines-1,xoffset + 1 + 19,'CVCS', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[a_filter] == 'cvcs' else 0))
+        Singleton.getInstance().add_button(lines-1,xoffset + 1 + 19,'CVCS', 'AF_4')
+
+        stdscr.addstr(lines-1,xoffset + 1 + 24, '▶')
+        Singleton.getInstance().add_button(lines-1,xoffset + 1 + 24, '▶', ord('d'))
+        stdscr.addstr(lines-1,xoffset + 1 + 25, ' ' * (columns - 27 - xoffset))
+
+        # stdscr.addstr(lines-1,xoffset + 1 + 19, '▶')
+        # Singleton.getInstance().add_button(lines-1,xoffset + 1 + 19, '▶', ord('d'))
+        # stdscr.addstr(lines-1,xoffset + 1 + 20, ' ' * (columns - 22 - xoffset))
+
         
         stdscr.addstr(lines-1,left_width - 18,'[Q:QUIT]', curses.color_pair(2))
         Singleton.getInstance().add_button(lines-1,left_width - 18,'[Q:QUIT]', ord('q')) #53
@@ -358,11 +367,11 @@ def main(stdscr):
         stdscr.addstr(0, columns - 9 + 6, ']' , curses.color_pair(2))
         Singleton.getInstance().add_button(0,columns - 12,'[G:GPURAM]', ord('g'))
 
-        stdscr.addstr(lines-1, xoffset + 20 + 2, '[J:' , curses.color_pair(2))
-        stdscr.addstr(lines-1, xoffset + 20 + 2+3, 'AGG' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().job_id_type == 'agg' else 0))
-        stdscr.addstr(lines-1, xoffset + 20 + 2+3+3, 'TRUE' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().job_id_type == 'true' else 0))
-        stdscr.addstr(lines-1, xoffset + 20 + 2+3+3+4, ']' , curses.color_pair(2))
-        Singleton.getInstance().add_button(lines-1,xoffset+20+2,'[J:AGGTRUE]', ord('j'))
+        stdscr.addstr(lines-1, xoffset + 25 + 2, '[J:' , curses.color_pair(2))
+        stdscr.addstr(lines-1, xoffset + 25 + 2+3, 'AGG' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().job_id_type == 'agg' else 0))
+        stdscr.addstr(lines-1, xoffset + 25 + 2+3+3, 'TRUE' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().job_id_type == 'true' else 0))
+        stdscr.addstr(lines-1, xoffset + 25 + 2+3+3+4, ']' , curses.color_pair(2))
+        Singleton.getInstance().add_button(lines-1,xoffset+25+2,'[J:AGGTRUE]', ord('j'))
         
         signature = Singleton.getInstance().signature
         stdscr.addstr(lines-1,columns-2-len(signature), signature)

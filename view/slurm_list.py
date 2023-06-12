@@ -9,7 +9,9 @@ def _joblet_format(job, width=74, jobid_type='agg'):
         joblet_repr = ''
         joblet_repr += _format_to(jid.replace('[','').replace(']','').split('%')[0], 15)
         joblet_repr += ' '
-        joblet_repr += _format_to(job.name if i == 0 else '"', width - 65, 'right')
+        joblet_repr += _format_to(job.account, 15)
+        joblet_repr += ' '
+        joblet_repr += _format_to(job.name if i == 0 else '"', width - 65 - 16, 'right')
         joblet_repr += ' '
         joblet_repr += _format_to(job.user if i == 0 else '"', 13, 'right')
         joblet_repr += ' '
@@ -46,20 +48,25 @@ def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None,
         printable.add('me')
         printable.add('prod')
         printable.add('stud')
+        printable.add('cvcs')
     elif filter == 'me':
         printable.add('me')
     elif filter == 'prod':
         printable.add('prod')
     elif filter == 'stud':
         printable.add('stud')
+    elif filter == 'cvcs':
+        printable.add('cvcs')
 
     jobs_to_print = []
     for j in jobs:
         if j.user == current_user and 'me' in printable:
             jobs_to_print.append(j)
-        elif 'stu' in j.partition and 'stud' in printable:
+        elif 'stu' in j.partition and 'stud' in printable and 'cvcs' not in j.account.lower():
             jobs_to_print.append(j)
         elif (not 'stu' in j.partition) and 'prod' in printable:
+            jobs_to_print.append(j)
+        elif 'cvcs' in printable and 'cvcs' in j.account.lower():
             jobs_to_print.append(j)
 
     class RetScope:

@@ -2,7 +2,7 @@ class Job:
     """
     A simple class modelling a SLURM job
     """
-    def __init__(self, jobid, true_jobid, name, user, partition, state, runtime, reason) -> None:
+    def __init__(self, jobid, true_jobid, name, user, partition, state, runtime, reason, account) -> None:
         self.jobid = jobid
         self.true_jobid = true_jobid
         self.name = name
@@ -12,6 +12,7 @@ class Job:
         self.runtime = runtime
         self.joblets = []
         self.reason = reason
+        self.account = account
 
     def __repr__(self):
         return f"JOB: {self.jobid} - {self.name} ({self.user}) [{self.reason}]\n" + \

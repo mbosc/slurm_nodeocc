@@ -16,13 +16,8 @@ import time
 import argparse
 
 parser = argparse.ArgumentParser(description='Visualize slurm jobs')
-parser.add_argument('--show-account', action='store_true', help='Show account name for each job')
-parser.add_argument('--show-prio', action='store_true', help='Show priority of each job')
 parser.add_argument('--debug', action='store_true', help='Enable logging')
-parser.add_argument('--time', type=float, default=2, help='Time between updates (in seconds) - min 2s')
 args = parser.parse_args()
-
-assert args.time >= 2, "Time between updates must be at least 2 seconds"
 
 # export args
 Singleton.getInstance(args)

@@ -11,11 +11,11 @@ def _joblet_format(job, width=74, jobid_type='agg'):
         joblet_repr += _format_to(jid.replace('[','').replace(']','').split('%')[0], 15)
         joblet_repr += ' '
         loffset = 0
-        if Singleton.getInstance().args.show_prio:
+        if Singleton.getInstance().show_prio:
             joblet_repr += '(' + _format_to(job.priority, 5) + ')'
             joblet_repr += ' '
             loffset += 8
-        if Singleton.getInstance().args.show_account:
+        if Singleton.getInstance().show_account:
             joblet_repr += _format_to(job.account, 9)
             joblet_repr += ' '
             loffset += 10

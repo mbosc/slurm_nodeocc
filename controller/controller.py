@@ -12,6 +12,21 @@ import view.slurm_list
 import view.slurm_viz
 import view.styles
 
+import time
+import argparse
+
+parser = argparse.ArgumentParser(description='Visualize slurm jobs')
+parser.add_argument('--show-account', action='store_true', help='Show account name for each job')
+parser.add_argument('--show-prio', action='store_true', help='Show priority of each job')
+parser.add_argument('--debug', action='store_true', help='Enable logging')
+parser.add_argument('--time', type=float, default=2, help='Time between updates (in seconds) - min 2s')
+args = parser.parse_args()
+
+assert args.time >= 2, "Time between updates must be at least 2 seconds"
+
+# export args
+Singleton.getInstance(args)
+
 last_update = os.path.getmtime(conf_path + "/view/slurm_viz.py")
 if os.path.getmtime(conf_path + "/view/slurm_list.py") > last_update:
     last_update = os.path.getmtime(conf_path + "/view/slurm_list.py")
@@ -31,6 +46,9 @@ def get_all(a_filter):
     updt = max(updt, os.path.getmtime(conf_path + "/view/styles.py"))
     updt = max(updt, os.path.getmtime(conf_path + "/readers/slurmreader.py"))
 
+    instance = Singleton.getInstance()
+    instance.timeme(f"Starting update")
+
     if updt > last_update:
         reload(readers.slurmreader)
         reload(view.slurm_list)
@@ -38,16 +56,25 @@ def get_all(a_filter):
         reload(view.styles)
         last_update = updt
 
+    instance.timeme(f"- reload")
+
     try:
         inf = readers.slurmreader.read_infrastructure()
+        instance.timeme(f"- infrastructure load")
+
         jobs, _ = readers.slurmreader.read_jobs()
+        instance.timeme(f"- jobs list read")
+        
+        instance.rens = view.slurm_list.view_list(jobs, a_filter, stylefn=view.styles.crsstyler, width=instance.left_width if hasattr(instance, 'left_width') else 72, jit=instance.job_id_type if hasattr(instance, 'job_id_type') else 'agg')
+        instance.timeme(f"- print job list")
 
+        instance.nocc = view.slurm_viz.view_viz(inf, jobs, stylefn=view.styles.crsstyler, mode=instance.view_mode if hasattr(instance, 'view_mode') else 'gpu')
+        instance.timeme(f"- view nodeocc")
 
-        Singleton.getInstance().rens = view.slurm_list.view_list(jobs, a_filter, stylefn=view.styles.crsstyler, width=Singleton.getInstance().left_width if hasattr(Singleton.getInstance(), 'left_width') else 72, jit=Singleton.getInstance().job_id_type if hasattr(Singleton.getInstance(), 'job_id_type') else 'agg')
-        Singleton.getInstance().nocc = view.slurm_viz.view_viz(inf, jobs, stylefn=view.styles.crsstyler, mode=Singleton.getInstance().view_mode if hasattr(Singleton.getInstance(), 'view_mode') else 'gpu')
-    except:
-        Singleton.getInstance().rens = 'Something went wrong'
-        Singleton.getInstance().nocc = ':('
+    except Exception as e:
+        instance.err(f"Exception: {e}")
+        instance.rens = 'Something went wrong'
+        instance.nocc = ':('
 
 
 # configure singleton

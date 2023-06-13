@@ -1,17 +1,25 @@
 from view.styles import cmdstyle, _format_to
+from view.curses_multiwindow import Singleton
 
 midlane = "─────────── ▲ DEV ──────────────────────────────── ▼ PROD ────────────"
 
 def _joblet_format(job, width=74, jobid_type='agg'):
     joblet_reprs = []
     for i, joblet in enumerate(job.joblets):
-        jid = job.jobid if jobid_type == 'agg' else job.true_jobid
+        jid = str(job.jobid if jobid_type == 'agg' else job.true_jobid)
         joblet_repr = ''
         joblet_repr += _format_to(jid.replace('[','').replace(']','').split('%')[0], 15)
         joblet_repr += ' '
-        joblet_repr += _format_to(job.account, 15)
-        joblet_repr += ' '
-        joblet_repr += _format_to(job.name if i == 0 else '"', width - 65 - 16, 'right')
+        loffset = 0
+        if Singleton.getInstance().args.show_prio:
+            joblet_repr += '(' + _format_to(job.priority, 5) + ')'
+            joblet_repr += ' '
+            loffset += 8
+        if Singleton.getInstance().args.show_account:
+            joblet_repr += _format_to(job.account, 9)
+            joblet_repr += ' '
+            loffset += 10
+        joblet_repr += _format_to(job.name if i == 0 else '"', width - 65 - loffset, 'right')
         joblet_repr += ' '
         joblet_repr += _format_to(job.user if i == 0 else '"', 13, 'right')
         joblet_repr += ' '

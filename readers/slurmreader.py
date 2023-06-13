@@ -1,8 +1,11 @@
 import os
 from io import StringIO
+import time
 import pandas as pd
 from model.infrastructure import Node, Maintenance, Infrastructure
 from model.job import Job, Joblet
+import json
+from view.curses_multiwindow import Singleton
 
 joblet_node_cache = {}
 joblet_array_cache = {}
@@ -128,6 +131,12 @@ def _purge_cache():
     joblet_node_cache = {}
     joblet_array_cache = {}
 
+def _load_joblet_meta(line):
+    if line['ST'] != 'PD':
+            return [x for x in _parse_scontrol_joblet_nodes(line["JOBID"]) if line["NODELIST"] in x]
+    else:
+        return '[]'
+
 def _gpus_per_joblet(line):
     if pd.isna(line['gpus_per_job']) and pd.isna(line['gpus_per_node']) and pd.isna(line['gpus_per_task']):
         return 0
@@ -136,7 +145,7 @@ def _gpus_per_joblet(line):
     else:
         if line['ST'] == 'PD':
             return line['gpus_per_job'] if not pd.isna(line['gpus_per_job']) else line['gpus_per_task']
-        gpus_id = [x for x in _parse_scontrol_joblet_nodes(line["JOBID"]) if line["NODELIST"] in x]
+        gpus_id = line['joblet_meta_str']
         gpus_id = sum([x.split('IDX:')[-1].split(')')[0].split(',') for x in gpus_id if 'gpu' in x], [])
         gpus_n = len(gpus_id) + sum([len(range(int(x.split('-')[1].split()[0]) - int(x.split('-')[0]))) for x in gpus_id if '-' in x])
         return gpus_n
@@ -145,7 +154,7 @@ def _cpus_per_joblet(line):
     if line['ST'] == 'PD':
         return line['MIN_CPUS']
     else:
-        cpus_id = [x for x in _parse_scontrol_joblet_nodes(line["JOBID"]) if line["NODELIST"] in x]
+        cpus_id = line['joblet_meta_str']
         cpus = sum([x.split('CPU_IDs=')[-1].split()[0].split(',') for x in cpus_id], [])
         cpus_n = len(cpus) + sum([len(range(int(x.split('-')[1].split()[0]) - int(x.split('-')[0]))) for x in cpus if '-' in x])
         return cpus_n
@@ -169,7 +178,7 @@ def _mem_per_joblet(line):
     if line['ST'] == 'PD':
         return parse_mem(line['MIN_MEMORY'])
     else:
-        mem_id = [x for x in _parse_scontrol_joblet_nodes(line["JOBID"]) if line["NODELIST"] in x]
+        mem_id = line['joblet_meta_str']
         mem = sum([int(x.split('Mem=')[-1].split()[0]) for x in mem_id])
         return mem
 
@@ -191,23 +200,41 @@ def read_jobs():
     """
     Get jobs and joblets status
     """
-    squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus:\;,Account: 2> /dev/null'
-    squeue_df = pd.read_csv(StringIO(os.popen(squeue_cmd).read()), sep=';')
+    instance = Singleton.getInstance()
+
+    squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus:\;,Account:\;,PriorityLong:\;,jobid:\;,tres: 2> /dev/null'
+    jobs_list = os.popen(squeue_cmd).read()
+    squeue_df = pd.read_csv(StringIO(jobs_list), sep=';')
+    instance.timeme(f"\t- squeue and dataframe creation")
+
     squeue_df['JOBID'] = squeue_df['JOBID'].apply(lambda x: str(x))
     squeue_df = _split_column(squeue_df, 'NODELIST')
     squeue_df['gpus_per_node'] = squeue_df['TRES_PER_NODE'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
     squeue_df['gpus_per_job'] = squeue_df['TRES_PER_JOB'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
     squeue_df['gpus_per_task'] = squeue_df['TRES_PER_TASK'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
-    squeue_df['joblet_gpus'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'gpus_per_task', 'TASKS', 'NODELIST', 'NODES', 'JOBID', 'ST']].apply(_gpus_per_joblet, axis=1)
-    squeue_df['joblet_cpus'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'gpus_per_task', 'TASKS', 'NODELIST', 'NODES', 'JOBID', 'ST', 'MIN_CPUS']].apply(_cpus_per_joblet, axis=1)
-    squeue_df['joblet_mem'] = squeue_df[['gpus_per_node', 'gpus_per_job', 'gpus_per_task', 'TASKS', 'NODELIST', 'NODES', 'JOBID', 'ST', 'MIN_MEMORY']].apply(_mem_per_joblet, axis=1)
-    squeue_df['TRUE_JOBID'] = squeue_df['JOBID'].apply(_true_jobid)
+
+    try:
+        squeue_df['joblet_mem'] = squeue_df['TRES_ALLOC'].apply(lambda l:int(str(l).split('mem=')[-1].split(',')[0].split('G')[0])*1024)
+        squeue_df['joblet_gpus'] = squeue_df['TRES_ALLOC'].apply(lambda l:str(l).split('gpu=')[-1].split(',')[0] if 'gpu=' in str(l) else 0)
+        squeue_df['joblet_cpus'] = squeue_df['TRES_ALLOC'].apply(lambda l:int(str(l).split('cpu=')[-1].split(',')[0]))
+    except Exception as e:
+        instance.err(f"Exception PD: {e}")
+        
+    instance.log(squeue_df[['joblet_mem','joblet_gpus','joblet_cpus','TRES_ALLOC']])
+
+    instance.timeme(f"\t- re processing")
+    squeue_df.rename(columns={'JOBID.1': 'TRUE_JOBID'}, inplace=True)
+
+    instance.timeme(f"\t- processing")
+
     _purge_cache()
+    instance.timeme(f"\t- purging cache")
+
     joblets = squeue_df.apply(lambda line: Joblet(line['JOBID'], line['TRUE_JOBID'], _node_preproc(line['NODELIST']) if not pd.isna(line['NODELIST']) else None, line['joblet_gpus'], line['joblet_cpus'], line['joblet_mem']), axis=1).tolist()
     jobs = squeue_df.drop_duplicates('JOBID').apply(lambda line: Job(
         line['JOBID'], line['TRUE_JOBID'], line['NAME'], line['USER'],
         line['PARTITION'], line['ST'], line['TIME'], line['REASON'],
-        line['ACCOUNT']
+        line['ACCOUNT'], line['PRIORITY'], line['TRES_ALLOC']
         ), axis=1).tolist()
 
     for j in jobs:

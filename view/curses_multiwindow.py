@@ -3,19 +3,22 @@ from importlib import reload
 import time
 import curses
 import threading
+import logging
 
 a_filter_values = [None, 'me', 'prod', 'stud', 'cvcs']
 
 class Singleton:
     __instance = None
     @staticmethod 
-    def getInstance():
+    def getInstance(args=None):
         """ Static access method. """
         if Singleton.__instance == None:
-            Singleton()
+            Singleton(args)
+        if args != None:
+            Singleton.__instance.args = args
         return Singleton.__instance
     
-    def __init__(self):
+    def __init__(self, args=None):
         """ Virtually private constructor. """
         if Singleton.__instance != None:
             raise Exception("This class is a singleton!")
@@ -30,12 +33,38 @@ class Singleton:
         self.fetch_subscriber = []
         self.view_mode = 'gpu'
         self.job_id_type = 'agg'
+        self.args = args
+        
+        # set logging file
+        if self.args.debug:
+            logging.basicConfig(filename=os.path.expanduser('~') + '/.nodeocc_ii/log.txt', level=logging.DEBUG, format='%(asctime)s %(message)s', filemode='w')
+
+    def timeme(self, msg=None):
+        if not hasattr(self, '_ctime'):
+            self._ctime = time.time()
+            if msg is not None:
+                self.log(msg)
+        else:
+            _ntime = time.time()
+            self.log(f"{msg} took {_ntime - self._ctime:.2f} seconds")
+            self._ctime = _ntime
+
+    def err(self, msg):
+        if self.args.debug:
+            logging.error(msg)
+
+    def log(self, msg):
+        if self.args.debug:
+            logging.info(msg)
         
     def fetch(self, a_filter):
-
+        _ctime = time.time()
+        
         for f in self.fetch_subscriber:
             f(a_filter_values[a_filter])
 
+        _delta_t = time.time() - _ctime
+        self.log(f"Fetch took {_delta_t:.2f} seconds")
 
     def add_button(self, y, x, width, action):
             if y not in self.mouse_state:
@@ -76,12 +105,13 @@ class Buffer(object):
         return input
 
     def refresh(self,voff=0,usevoff=False):
+        instance = Singleton.getInstance()
         self.window.erase()
         off = max(0,((self.lines-2) - len(self.buffer)) // 2)
         if usevoff and voff < 0:
-            Singleton.getInstance().voff = 0
+            instance.voff = 0
         elif usevoff and voff > len(self.buffer) - self.lines + 2:
-            Singleton.getInstance().voff = len(self.buffer) - self.lines + 2
+            instance.voff = len(self.buffer) - self.lines + 2
         
         voff = max(min(voff, len(self.buffer) - self.lines + 2), 0)
         for nr, line in enumerate(self.buffer[voff:voff+self.lines-2]):#self.buffer[-self.lines+2:]):
@@ -102,13 +132,14 @@ class Buffer(object):
                 else:
                     try:
                         self.window.addstr(nr + off + 1, xacc, chunk)
-                    except:
+                    except Exception as e:
+                        instance.err(e)
                         pass
                     xacc += len(chunk)
         if len(self.buffer) > self.lines - 2:
-            self.screen.addstr(self.lines-2, Singleton.getInstance().xoffset + Singleton.getInstance().left_width // 2 - 6, ' ▼ SCROLL ▲ ' , curses.color_pair(2) | curses.A_REVERSE)
-            Singleton.getInstance().add_button(self.lines-2, Singleton.getInstance().xoffset + 31, 'D', ord('s'))
-            Singleton.getInstance().add_button(self.lines-2, Singleton.getInstance().xoffset + 40, 'U', ord('w'))
+            self.screen.addstr(self.lines-2, instance.xoffset + instance.left_width // 2 - 6, ' ▼ SCROLL ▲ ' , curses.color_pair(2) | curses.A_REVERSE)
+            instance.add_button(self.lines-2, instance.xoffset + 31, 'D', ord('s'))
+            instance.add_button(self.lines-2, instance.xoffset + 40, 'U', ord('w'))
         
         self.window.border()
         self.window.noutrefresh()
@@ -128,10 +159,12 @@ def process_mouse():
 
 def main(stdscr):
     # Clear screen
+    instance = Singleton.getInstance()
     stdscr.clear()
     curses.noecho()
     curses.curs_set(0)
-    stdscr.timeout(2000)
+    timedelta_refresh  = instance.args.time
+    stdscr.timeout(int(timedelta_refresh*1000))
     _ = curses.mousemask(1)
 
     
@@ -165,14 +198,15 @@ def main(stdscr):
     # curses.init_pair(13, curses.COLOR_WHITE, curses.COLOR_MAGENTA)
 
     curses.init_pair(15, -1, 6)
-    # curses.init_pair(13, curses.COLOR_WHITE, curses.COLOR_CYAN)
+    # curses.init_pair(15, curses.COLOR_WHITE, curses.COLOR_CYAN) (reversed because >9)
     # status
     k = -1
     refreshtime = time.time() - 60
-    lastconf = None
+
     a_filter = 0
     outdated = True
-    Singleton.getInstance().fetch(a_filter)
+
+    instance.fetch(a_filter)
 
     def theres_changelog():
         # if not os.path.exists('/nas/softechict-nas-2/mboschini/cool_scripts/nodeocc_ii_changelog/%s.txt' % version):
@@ -255,19 +289,25 @@ def main(stdscr):
             if k == ord('q'): break
 
 
-        Singleton.getInstance().mouse_state = {}
+        instance.mouse_state = {}
 
         lines,columns = stdscr.getmaxyx()
         if k == ord('y'):
             stdscr.clear()
 
-        if columns < 122:
+        totsize = 106
+        if instance.args.show_account:
+            totsize += 10
+        if instance.args.show_prio:
+            totsize += 8
+        
+        if columns < totsize:
             try:
                 k = stdscr.getch()
             except:
                 k = ord('z')
             stdscr.addstr(1, 1, "MINIMUM TERM. WIDTH")
-            stdscr.addstr(2, 1, "REQUIRED: 122")
+            stdscr.addstr(2, 1, f"REQUIRED: {totsize}")
             stdscr.addstr(3, 1, "CURRENT: " + str(columns))
             stdscr.refresh()
             continue
@@ -276,34 +316,34 @@ def main(stdscr):
         # RIGHT
         if k == ord('d') or k == 261: 
             a_filter = (a_filter + 1) % len(a_filter_values)
-            Singleton.getInstance().voff = 0
+            instance.voff = 0
             outdated = True
         # LEFT
         elif k == ord('a') or k == 260:
             a_filter = (a_filter + (len(a_filter_values)-1)) % len(a_filter_values)
-            Singleton.getInstance().voff = 0
+            instance.voff = 0
             outdated = True
         elif valid_mouse and type(k) == str and k.startswith('AF_'):
             a_filter = int(k.split('AF_')[1])
         # DOWN
         elif k == ord('s') or k == 258:
-            Singleton.getInstance().voff += 1
+            instance.voff += 1
         # UP
         elif k == ord('w') or k == 259:
-            Singleton.getInstance().voff -= 1
-        outdated = outdated or time.time() - refreshtime > 2
+            instance.voff -= 1
+        outdated = outdated or time.time() - refreshtime > timedelta_refresh
 
         if k == ord('g'):
-            Singleton.getInstance().view_mode = "gpu" if Singleton.getInstance().view_mode == "ram" else "ram"
+            instance.view_mode = "gpu" if instance.view_mode == "ram" else "ram"
         if k == ord('j'):
-            Singleton.getInstance().job_id_type = "true" if Singleton.getInstance().job_id_type == "agg" else "agg"
+            instance.job_id_type = "true" if instance.job_id_type == "agg" else "agg"
         
         xoffset = 0#(columns - 104) //2
-        Singleton.getInstance().xoffset = xoffset
+        instance.xoffset = xoffset
 
         # fetch state in separate thread
         if outdated:
-            threading.Thread(target=Singleton.getInstance().fetch, args=(a_filter,)).start()
+            threading.Thread(target=instance.fetch, args=(a_filter,)).start()
             outdated = False
             refreshtime = time.time()
             
@@ -317,63 +357,63 @@ def main(stdscr):
         stdscr.refresh()
 
         left_width = columns - 33 #72
-        Singleton.getInstance().left_width = left_width
+        instance.left_width = left_width
         left_window = curses.newwin(lines-1, left_width, 0, xoffset)
         left_buffer = Buffer(left_window, lines, stdscr)
         right_window = curses.newwin(lines-1,31, 0, xoffset + left_width + 1)
         right_buffer = Buffer(right_window, lines, stdscr)
             
             
-        left_buffer.write(Singleton.getInstance().rens)
-        right_buffer.write(Singleton.getInstance().nocc)
+        left_buffer.write(instance.rens)
+        right_buffer.write(instance.nocc)
         right_buffer.refresh()
-        left_buffer.refresh(Singleton.getInstance().voff, True)
+        left_buffer.refresh(instance.voff, True)
         lastconf = (lines,columns)
         
         # render menu
         stdscr.addstr(lines-1,xoffset + 1 + 0, '◀')
-        Singleton.getInstance().add_button(lines-1,xoffset + 1 + 0, '◀', ord('a'))
+        instance.add_button(lines-1,xoffset + 1 + 0, '◀', ord('a'))
         stdscr.addstr(lines-1,xoffset + 1 + 2, 'ALL', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[a_filter] == None else 0))
 
-        Singleton.getInstance().add_button(lines-1,xoffset + 1 + 2, 'ALL', 'AF_0')
+        instance.add_button(lines-1,xoffset + 1 + 2, 'ALL', 'AF_0')
 
         stdscr.addstr(lines-1,xoffset + 1 + 6, 'ME', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[a_filter] == 'me' else 0))
-        Singleton.getInstance().add_button(lines-1,xoffset + 1 + 6, 'ME', 'AF_1')
+        instance.add_button(lines-1,xoffset + 1 + 6, 'ME', 'AF_1')
         stdscr.addstr(lines-1,xoffset + 1 + 9, 'PROD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[a_filter] == 'prod' else 0))
-        Singleton.getInstance().add_button(lines-1,xoffset + 1 + 9, 'PROD', 'AF_2')
+        instance.add_button(lines-1,xoffset + 1 + 9, 'PROD', 'AF_2')
         stdscr.addstr(lines-1,xoffset + 1 + 14,'STUD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[a_filter] == 'stud' else 0))
-        Singleton.getInstance().add_button(lines-1,xoffset + 1 + 14,'STUD', 'AF_3')
+        instance.add_button(lines-1,xoffset + 1 + 14,'STUD', 'AF_3')
         stdscr.addstr(lines-1,xoffset + 1 + 19,'CVCS', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[a_filter] == 'cvcs' else 0))
-        Singleton.getInstance().add_button(lines-1,xoffset + 1 + 19,'CVCS', 'AF_4')
+        instance.add_button(lines-1,xoffset + 1 + 19,'CVCS', 'AF_4')
 
         stdscr.addstr(lines-1,xoffset + 1 + 24, '▶')
-        Singleton.getInstance().add_button(lines-1,xoffset + 1 + 24, '▶', ord('d'))
+        instance.add_button(lines-1,xoffset + 1 + 24, '▶', ord('d'))
         stdscr.addstr(lines-1,xoffset + 1 + 25, ' ' * (columns - 27 - xoffset))
 
         # stdscr.addstr(lines-1,xoffset + 1 + 19, '▶')
-        # Singleton.getInstance().add_button(lines-1,xoffset + 1 + 19, '▶', ord('d'))
+        # instance.add_button(lines-1,xoffset + 1 + 19, '▶', ord('d'))
         # stdscr.addstr(lines-1,xoffset + 1 + 20, ' ' * (columns - 22 - xoffset))
 
         
         stdscr.addstr(lines-1,left_width - 18,'[Q:QUIT]', curses.color_pair(2))
-        Singleton.getInstance().add_button(lines-1,left_width - 18,'[Q:QUIT]', ord('q')) #53
+        instance.add_button(lines-1,left_width - 18,'[Q:QUIT]', ord('q')) #53
 
         stdscr.addstr(lines-1,left_width - 18 + 8,'[Y:REDRAW]', curses.color_pair(2))
-        Singleton.getInstance().add_button(lines-1,left_width - 18 + 8,'[Y:REDRAW]', ord('y'))
+        instance.add_button(lines-1,left_width - 18 + 8,'[Y:REDRAW]', ord('y'))
 
         stdscr.addstr(0, columns - 12, '[G:' , curses.color_pair(2))
-        stdscr.addstr(0, columns - 9, 'GPU' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().view_mode == 'gpu' else 0))
-        stdscr.addstr(0, columns - 9 + 3, 'RAM' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().view_mode == 'ram' else 0))
+        stdscr.addstr(0, columns - 9, 'GPU' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'gpu' else 0))
+        stdscr.addstr(0, columns - 9 + 3, 'RAM' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'ram' else 0))
         stdscr.addstr(0, columns - 9 + 6, ']' , curses.color_pair(2))
-        Singleton.getInstance().add_button(0,columns - 12,'[G:GPURAM]', ord('g'))
+        instance.add_button(0,columns - 12,'[G:GPURAM]', ord('g'))
 
         stdscr.addstr(lines-1, xoffset + 25 + 2, '[J:' , curses.color_pair(2))
-        stdscr.addstr(lines-1, xoffset + 25 + 2+3, 'AGG' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().job_id_type == 'agg' else 0))
-        stdscr.addstr(lines-1, xoffset + 25 + 2+3+3, 'TRUE' , curses.color_pair(2) | (curses.A_REVERSE if Singleton.getInstance().job_id_type == 'true' else 0))
+        stdscr.addstr(lines-1, xoffset + 25 + 2+3, 'AGG' , curses.color_pair(2) | (curses.A_REVERSE if instance.job_id_type == 'agg' else 0))
+        stdscr.addstr(lines-1, xoffset + 25 + 2+3+3, 'TRUE' , curses.color_pair(2) | (curses.A_REVERSE if instance.job_id_type == 'true' else 0))
         stdscr.addstr(lines-1, xoffset + 25 + 2+3+3+4, ']' , curses.color_pair(2))
-        Singleton.getInstance().add_button(lines-1,xoffset+25+2,'[J:AGGTRUE]', ord('j'))
+        instance.add_button(lines-1,xoffset+25+2,'[J:AGGTRUE]', ord('j'))
         
-        signature = Singleton.getInstance().signature
+        signature = instance.signature
         stdscr.addstr(lines-1,columns-2-len(signature), signature)
         
 

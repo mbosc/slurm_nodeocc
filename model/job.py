@@ -1,10 +1,12 @@
+from view.curses_multiwindow import Singleton
+
 class Job:
     """
     A simple class modelling a SLURM job
     """
-    def __init__(self, jobid, true_jobid, name, user, partition, state, runtime, reason, account) -> None:
+    def __init__(self, jobid, true_jobid, name, user, partition, state, runtime, reason, account, priority, tres) -> None:
         self.jobid = jobid
-        self.true_jobid = true_jobid
+        self.true_jobid = str(true_jobid)        
         self.name = name
         self.user = user
         self.partition = partition
@@ -13,6 +15,8 @@ class Job:
         self.joblets = []
         self.reason = reason
         self.account = account
+        self.priority = priority
+        self.tres = tres
 
     def __repr__(self):
         return f"JOB: {self.jobid} - {self.name} ({self.user}) [{self.reason}]\n" + \
@@ -33,6 +37,10 @@ class Joblet:
         self.cpus = cpus
 
     def __repr__(self):
-        if type(self.mem) == str: 
-          return f"JOBLET: {self.jobid} on {self.node} ({self.n_gpus} gpus, {self.cpus} cpus, {self.mem} Mmem)"
-        return f"JOBLET: {self.jobid} on {self.node} ({self.n_gpus} gpus, {self.cpus} cpus, {self.mem/1024} Gmem)"
+        try:
+            if type(self.mem) == str: 
+                retstr = f"JOBLET: {self.jobid} on {self.node} ({self.n_gpus} gpus, {self.cpus} cpus, {self.mem} Mmem)"
+            retstr = f"JOBLET: {self.jobid} on {self.node} ({self.n_gpus} gpus, {self.cpus} cpus, {self.mem/1024} Gmem)"
+        except Exception as e:
+            Singleton.getInstance().err(f"Exception in joblet repr: {e}")
+        return retstr

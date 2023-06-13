@@ -34,6 +34,10 @@ class Singleton:
         self.view_mode = 'gpu'
         self.job_id_type = 'agg'
         self.args = args
+
+        self.show_account = False
+        self.show_prio = False
+        self.time = 5
         
         # set logging file
         if self.args.debug:
@@ -163,7 +167,7 @@ def main(stdscr):
     stdscr.clear()
     curses.noecho()
     curses.curs_set(0)
-    timedelta_refresh  = instance.args.time
+    timedelta_refresh  = instance.time
     stdscr.timeout(int(timedelta_refresh*1000))
     _ = curses.mousemask(1)
 
@@ -296,9 +300,9 @@ def main(stdscr):
             stdscr.clear()
 
         totsize = 106
-        if instance.args.show_account:
+        if instance.show_account:
             totsize += 10
-        if instance.args.show_prio:
+        if instance.show_prio:
             totsize += 8
         
         if columns < totsize:
@@ -338,6 +342,20 @@ def main(stdscr):
         if k == ord('j'):
             instance.job_id_type = "true" if instance.job_id_type == "agg" else "agg"
         
+        if k == ord('t'):
+            instance.show_account = not instance.show_account
+        if k == ord('p'):
+            instance.show_prio = not instance.show_prio
+        if k == ord('h'):
+            if instance.time == 2:
+                instance.time = 5
+            elif instance.time == 5:
+                instance.time = 10
+            elif instance.time == 10:
+                instance.time = 20
+            elif instance.time == 20:
+                instance.time = 2
+
         xoffset = 0#(columns - 104) //2
         instance.xoffset = xoffset
 
@@ -412,11 +430,28 @@ def main(stdscr):
         stdscr.addstr(lines-1, xoffset + 25 + 2+3+3, 'TRUE' , curses.color_pair(2) | (curses.A_REVERSE if instance.job_id_type == 'true' else 0))
         stdscr.addstr(lines-1, xoffset + 25 + 2+3+3+4, ']' , curses.color_pair(2))
         instance.add_button(lines-1,xoffset+25+2,'[J:AGGTRUE]', ord('j'))
-        
+
+        stdscr.addstr(lines-1, xoffset + 37 + 2, '[P:' , curses.color_pair(2))
+        stdscr.addstr(lines-1, xoffset + 37 + 2+3, 'PRIORITY' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_prio else 0))
+        stdscr.addstr(lines-1, xoffset + 37 + 2+3+8, ']' , curses.color_pair(2))
+        instance.add_button(lines-1,xoffset+37+2,'[P:PRIORITY]', ord('p'))
+
+        stdscr.addstr(lines-1, xoffset + 50 + 2, '[T:' , curses.color_pair(2))
+        stdscr.addstr(lines-1, xoffset + 50 + 2+3, 'ACCOUNT' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_account else 0))
+        stdscr.addstr(lines-1, xoffset + 50 + 2+3+7, ']' , curses.color_pair(2))
+        instance.add_button(lines-1,xoffset+50+2,'[T:ACCOUNT]', ord('t'))
+
+        stdscr.addstr(lines-1, xoffset + 62 + 2, '[H:' , curses.color_pair(2))
+        stdscr.addstr(lines-1, xoffset + 62 + 2+3, '2' , curses.color_pair(2) | (curses.A_REVERSE if instance.time==2 else 0))
+        stdscr.addstr(lines-1, xoffset + 62 + 2+3+1, '5' , curses.color_pair(2) | (curses.A_REVERSE if instance.time==5 else 0))
+        stdscr.addstr(lines-1, xoffset + 62 + 2+3+2, '10' , curses.color_pair(2) | (curses.A_REVERSE if instance.time==10 else 0))
+        stdscr.addstr(lines-1, xoffset + 62 + 2+3+4, '20' , curses.color_pair(2) | (curses.A_REVERSE if instance.time==20 else 0))
+        stdscr.addstr(lines-1, xoffset + 62 + 2+3+6, 's]' , curses.color_pair(2))
+        instance.add_button(lines-1,xoffset+62+2+3+6,'[H:251020s]', ord('h'))
+
         signature = instance.signature
         stdscr.addstr(lines-1,columns-2-len(signature), signature)
         
-
         stdscr.refresh()
         curses.doupdate()
         try:

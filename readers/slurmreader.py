@@ -203,8 +203,13 @@ def read_jobs():
     instance = Singleton.getInstance()
 
     squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus:\;,Account:\;,PriorityLong:\;,jobid:\;,tres: 2> /dev/null'
-    jobs_list = os.popen(squeue_cmd).read()
-    squeue_df = pd.read_csv(StringIO(jobs_list), sep=';')
+    try:
+        jobs_list = os.popen(squeue_cmd).read()
+        squeue_df = pd.read_csv(StringIO(jobs_list), sep=';')
+    except Exception as e:
+        instance.err(f"Exception: {e}")
+        return [], []
+    
     instance.timeme(f"\t- squeue and dataframe creation")
 
     squeue_df['JOBID'] = squeue_df['JOBID'].apply(lambda x: str(x))
@@ -220,8 +225,6 @@ def read_jobs():
     except Exception as e:
         instance.err(f"Exception PD: {e}")
         
-    instance.log(squeue_df[['joblet_mem','joblet_gpus','joblet_cpus','TRES_ALLOC']])
-
     instance.timeme(f"\t- re processing")
     squeue_df.rename(columns={'JOBID.1': 'TRUE_JOBID'}, inplace=True)
 

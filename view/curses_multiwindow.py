@@ -4,6 +4,7 @@ import time
 import curses
 import threading
 import logging
+from logging.handlers import RotatingFileHandler
 
 a_filter_values = [None, 'me', 'prod', 'stud', 'cvcs']
 
@@ -41,7 +42,10 @@ class Singleton:
         
         # set logging file
         if self.args.debug:
-            logging.basicConfig(filename=os.path.expanduser('~') + '/.nodeocc_ii/log.txt', level=logging.DEBUG, format='%(asctime)s %(message)s', filemode='w')
+            # create rotating file handler
+            handler = RotatingFileHandler(os.path.expanduser('~') + '/.nodeocc_ii/log.txt', maxBytes=5*1024*1024, backupCount=2, mode='w')
+            logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', 
+                                handlers=[handler])
 
     def timeme(self, msg=None):
         if not hasattr(self, '_ctime'):
@@ -360,10 +364,11 @@ def main(stdscr):
         instance.xoffset = xoffset
 
         # fetch state in separate thread
-        if outdated:
-            threading.Thread(target=instance.fetch, args=(a_filter,)).start()
-            outdated = False
-            refreshtime = time.time()
+        instance.fetch(a_filter)
+        # if outdated:
+        #     threading.Thread(target=instance.fetch, args=(a_filter,)).start()
+        #     outdated = False
+        #     refreshtime = time.time()
             
 
         # update state (recompute lines for safety)

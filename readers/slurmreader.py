@@ -196,6 +196,15 @@ def _true_jobid(line):
 def _node_preproc(x):
     return x.replace('aimagelab-srv-', '')
 
+def try_parse_gpu(s:str):
+    if 'gpu' in s:
+        try:
+            return int(s.split(':')[-1].split()[0])
+        except:
+            return 1
+    else:
+        return 1
+    
 def read_jobs():
     """
     Get jobs and joblets status
@@ -214,9 +223,9 @@ def read_jobs():
 
     squeue_df['JOBID'] = squeue_df['JOBID'].apply(lambda x: str(x))
     squeue_df = _split_column(squeue_df, 'NODELIST')
-    squeue_df['gpus_per_node'] = squeue_df['TRES_PER_NODE'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
-    squeue_df['gpus_per_job'] = squeue_df['TRES_PER_JOB'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
-    squeue_df['gpus_per_task'] = squeue_df['TRES_PER_TASK'].apply(lambda x: int(x.split(':')[-1].split()[0] if x != 'gpu' else 1) if type(x) == str else x)
+    squeue_df['gpus_per_node'] = squeue_df['TRES_PER_NODE'].apply(lambda x: try_parse_gpu(x) if type(x) == str else x)
+    squeue_df['gpus_per_job'] = squeue_df['TRES_PER_JOB'].apply(lambda x: try_parse_gpu(x) if type(x) == str else x)
+    squeue_df['gpus_per_task'] = squeue_df['TRES_PER_TASK'].apply(lambda x: try_parse_gpu(x) if type(x) == str else x)
 
     try:
         squeue_df['joblet_mem'] = squeue_df['TRES_ALLOC'].apply(lambda l:int(str(l).split('mem=')[-1].split(',')[0].split('G')[0])*1024)

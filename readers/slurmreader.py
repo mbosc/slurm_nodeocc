@@ -204,7 +204,19 @@ def try_parse_gpu(s:str):
             return 1
     else:
         return 1
-    
+
+def get_mem_joblet(tres_str:str):
+    try:
+        mem = tres_str.split('mem=')[-1].split(',')[0]
+        if 'G' in mem:
+            return int(mem.split('G')[0])*1024
+        elif 'M' in mem:
+            return int(mem.split('M')[0])
+        else:
+            return int(mem)
+    except:
+        return 0
+
 def read_jobs():
     """
     Get jobs and joblets status
@@ -228,7 +240,7 @@ def read_jobs():
     squeue_df['gpus_per_task'] = squeue_df['TRES_PER_TASK'].apply(lambda x: try_parse_gpu(x) if type(x) == str else x)
 
     try:
-        squeue_df['joblet_mem'] = squeue_df['TRES_ALLOC'].apply(lambda l:int(str(l).split('mem=')[-1].split(',')[0].split('G')[0])*1024)
+        squeue_df['joblet_mem'] = squeue_df['TRES_ALLOC'].apply(lambda l:get_mem_joblet(l))
         squeue_df['joblet_gpus'] = squeue_df['TRES_ALLOC'].apply(lambda l:str(l).split('gpu=')[-1].split(',')[0] if 'gpu=' in str(l) else 0)
         squeue_df['joblet_cpus'] = squeue_df['TRES_ALLOC'].apply(lambda l:int(str(l).split('cpu=')[-1].split(',')[0]))
     except Exception as e:

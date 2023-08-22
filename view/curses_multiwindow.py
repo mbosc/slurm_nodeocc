@@ -1,10 +1,9 @@
 import os
-from importlib import reload
 import time
 import curses
-import threading
 import logging
 from logging.handlers import RotatingFileHandler
+import socket
 
 a_filter_values = [None, 'me', 'prod', 'stud', 'cvcs']
 
@@ -18,6 +17,12 @@ class Singleton:
         if args != None:
             Singleton.__instance.args = args
         return Singleton.__instance
+    
+    # destructor
+    def __del__(self):
+        if self.args.master:
+            if len([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')])>0:
+                os.remove(f'/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/{str(self.port)}.port')
     
     def __init__(self, args=None):
         """ Virtually private constructor. """
@@ -46,6 +51,66 @@ class Singleton:
             handler = RotatingFileHandler(os.path.expanduser('~') + '/.nodeocc_ii/log.txt', maxBytes=5*1024*1024, backupCount=2, mode='w')
             logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', 
                                 handlers=[handler])
+            
+        if self.args.master:
+            # check if any .port file exists    
+            if len([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')]) > 0:
+                raise Exception("Master already running")
+            self.port = self.create_socket_as_master()
+        else:
+            # check if any .port file exists    
+            if len([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')]) == 0:
+                raise Exception("No master running")
+
+            self.port = int([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')][0].split('.')[0])
+            self.open_socket_as_slave(self.port)
+
+    def create_socket_as_master(self):
+        # create udp socket for broadcasting
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        # check if kernel version
+        # is 3.9 or above
+        if hasattr(socket, "SO_REUSEPORT"):
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        else:
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        # Enable broadcasting mode
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        self.sock.bind(('', 0))
+
+        self.port = self.sock.getsockname()[1]
+        self.sock.settimeout(11)
+        self.log(f"Socket created as master on port {self.port}")
+
+        # get pid of current process
+        self.pid = os.getpid()
+
+        # create file to store port
+        with open(f'/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/{self.port}.port', "w") as f:
+            f.write(str(self.pid))
+
+        return self.port
+    
+    def open_socket_as_slave(self, port):
+        # create udp socket for broadcasting
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        # check if kernel version
+        # is 3.9 or above
+        if hasattr(socket, "SO_REUSEPORT"):
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        else:
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        #sock listen on port
+        self.sock.bind(('', port))
+
+        self.sock.settimeout(6.5)
+
+        self.log(f"Socket opened on port {self.port}")
+
+        return self.port
 
     def timeme(self, msg=None):
         if not hasattr(self, '_ctime'):
@@ -359,6 +424,7 @@ def main(stdscr):
                 instance.time = 20
             elif instance.time == 20:
                 instance.time = 2
+            stdscr.timeout(int(instance.time*1000))
 
         xoffset = 0#(columns - 104) //2
         instance.xoffset = xoffset

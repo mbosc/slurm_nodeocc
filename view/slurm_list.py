@@ -1,9 +1,8 @@
 from view.styles import cmdstyle, _format_to
-from view.curses_multiwindow import Singleton
 
 midlane = "─────────── ▲ DEV ──────────────────────────────── ▼ PROD ────────────"
 
-def _joblet_format(job, width=74, jobid_type='agg'):
+def _joblet_format(instance, job, width=74, jobid_type='agg'):
     joblet_reprs = []
     for i, joblet in enumerate(job.joblets):
         jid = str(job.jobid if jobid_type == 'agg' else job.true_jobid)
@@ -11,11 +10,11 @@ def _joblet_format(job, width=74, jobid_type='agg'):
         joblet_repr += _format_to(jid.replace('[','').replace(']','').split('%')[0], 15)
         joblet_repr += ' '
         loffset = 0
-        if Singleton.getInstance().show_prio:
+        if instance.show_prio:
             joblet_repr += '(' + _format_to(job.priority, 5) + ')'
             joblet_repr += ' '
             loffset += 8
-        if Singleton.getInstance().show_account:
+        if instance.show_account:
             joblet_repr += _format_to(job.account, 9)
             joblet_repr += ' '
             loffset += 10
@@ -40,7 +39,7 @@ def _joblet_format(job, width=74, jobid_type='agg'):
     job_repr = '\n'.join(joblet_reprs)
     return job_repr
 
-def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None, width=74, jit='agg'):
+def view_list(instance, jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None, width=74, jit='agg'):
     # this is for hot reload
     if not work:
         return "UPDATE IN PROGRESS - PLZ W8 M8 B8"
@@ -90,57 +89,58 @@ def view_list(jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None,
 
     for x in devjobs:
         if x.state == 'R':
-            cust_print(_joblet_format(x, width=width, jobid_type=jit))
+            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit))
 
     # dev - stopped
     for x in devjobs:
         if x.state == 'S':
-            cust_print(_joblet_format(x, width=width, jobid_type=jit), style='MAGENTA')
+            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='MAGENTA')
             
     # dev - pending
     for x in devjobs:
         if x.state == 'PD':
-            cust_print(_joblet_format(x, width=width, jobid_type=jit), style='YELLOW')
+            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='YELLOW')
 
     # dev - concluding
     for x in devjobs:
         if x.state == 'CG':
-            cust_print(_joblet_format(x, width=width, jobid_type=jit), style='MAGENTA')
+            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='MAGENTA')
 
     cust_print('─' * ((width - 72) // 2) + midlane + '─' * (width - 72 - ((width - 72) // 2)))
 
     prodjobs = sorted([x for x in jobs_to_print if not('dev' in x.partition)], key=lambda x: (x.user, x.jobid.split('_')[0], int(x.jobid.split('_')[1]) if '_' in x.jobid and '[' not in x.jobid else (999 if '[' in x.jobid else 0)))
     
-    
     # dev - running
     for x in prodjobs:
         if x.state == 'R':
-            cust_print(_joblet_format(x, width=width, jobid_type=jit))
+            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit))
 
     # dev - stopped
     for x in prodjobs:
         if x.state == 'S':
-            cust_print(_joblet_format(x, width=width, jobid_type=jit), style='MAGENTA')
+            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='MAGENTA')
 
     # dev - pending
     for x in prodjobs:
         if x.state == 'PD':
-            cust_print(_joblet_format(x, width=width, jobid_type=jit), style='YELLOW')
+            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='YELLOW')
 
     # dev - concluding
     for x in prodjobs:
         if x.state == 'CG':
-            cust_print(_joblet_format(x, width=width, jobid_type=jit), style='MAGENTA')
-
+            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='MAGENTA')
+    
     return RetScope.return_string
 
 if __name__ == '__main__':
     import sys
     from readers.slurmreader import read_jobs
+    from curses_multiwindow import Singleton
+    instance = Singleton.getInstance()
     jobs, _ = read_jobs()
     if len(sys.argv) > 1 and sys.argv[1] == 'work':
-        print(view_list(jobs, work=True, filter='me'))
+        print(view_list(instance, jobs, work=True, filter='me'))
     elif len(sys.argv) > 1:
-        print(view_list(jobs, filter=sys.argv[1]))
+        print(view_list(instance, jobs, filter=sys.argv[1]))
     else:
-        print(view_list(jobs))
+        print(view_list(instance, jobs))

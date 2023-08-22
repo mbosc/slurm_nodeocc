@@ -4,6 +4,7 @@ import curses
 import logging
 from logging.handlers import RotatingFileHandler
 import socket
+from view import update_views
 
 a_filter_values = [None, 'me', 'prod', 'stud', 'cvcs']
 
@@ -36,7 +37,7 @@ class Singleton:
         self.nocc = ""
         self.rens = ""
         
-        self.fetch_subscriber = []
+        self.fetch_fn = None
         self.view_mode = 'gpu'
         self.job_id_type = 'agg'
         self.args = args
@@ -44,9 +45,15 @@ class Singleton:
         self.show_account = False
         self.show_prio = False
         self.time = 5
+
+        self.inf = None
+        self.jobs = []
+        self.a_filter = 0
         
+        if self.args.daemon_only:
+            logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
         # set logging file
-        if self.args.debug:
+        elif self.args.debug:
             # create rotating file handler
             handler = RotatingFileHandler(os.path.expanduser('~') + '/.nodeocc_ii/log.txt', maxBytes=5*1024*1024, backupCount=2, mode='w')
             logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', 
@@ -108,6 +115,8 @@ class Singleton:
 
         self.sock.settimeout(6.5)
 
+        self.sock.setblocking(False)
+
         self.log(f"Socket opened on port {self.port}")
 
         return self.port
@@ -123,18 +132,20 @@ class Singleton:
             self._ctime = _ntime
 
     def err(self, msg):
-        if self.args.debug:
+        if self.args.debug or self.args.daemon_only:
             logging.error(msg)
 
     def log(self, msg):
-        if self.args.debug:
+        if self.args.debug or self.args.daemon_only:
             logging.info(msg)
         
-    def fetch(self, a_filter):
+    async def fetch(self):
         _ctime = time.time()
         
-        for f in self.fetch_subscriber:
-            f(a_filter_values[a_filter])
+        if self.fetch_fn is not None:
+            inf, jobs = await self.fetch_fn()#a_filter_values[self.a_filter])
+            self.inf = inf if inf is not None else self.inf
+            self.jobs = jobs if jobs is not None else self.jobs
 
         _delta_t = time.time() - _ctime
         self.log(f"Fetch took {_delta_t:.2f} seconds")
@@ -229,15 +240,17 @@ def process_mouse():
     except:
         return False, -1
 
-
-def main(stdscr):
+async def main(stdscr):
     # Clear screen
     instance = Singleton.getInstance()
+    instance.log(f"MAIN")
     stdscr.clear()
     curses.noecho()
     curses.curs_set(0)
-    timedelta_refresh  = instance.time
-    stdscr.timeout(int(timedelta_refresh*1000))
+
+    stdscr.nodelay(True)
+    # timedelta_refresh  = instance.time
+    # stdscr.timeout(int(timedelta_refresh*1000))
     _ = curses.mousemask(1)
 
     
@@ -274,85 +287,22 @@ def main(stdscr):
     # curses.init_pair(15, curses.COLOR_WHITE, curses.COLOR_CYAN) (reversed because >9)
     # status
     k = -1
-    refreshtime = time.time() - 60
 
-    a_filter = 0
+    instance.a_filter = 0
     outdated = True
 
-    instance.fetch(a_filter)
-
-    def theres_changelog():
-        # if not os.path.exists('/nas/softechict-nas-2/mboschini/cool_scripts/nodeocc_ii_changelog/%s.txt' % version):
-        #     return False
-        # if not os.path.exists(os.path.expanduser('~') + '/.nodeocc_ii/last_clog.txt'):
-        #     return True
-        # with open(os.path.expanduser('~') + '/.nodeocc_ii/last_clog.txt') as f:
-        #     lastver = f.read().strip()
-        # if lastver != version:
-        #     return True
-        # else:
-        #     return False
-        return False
-
-    # def get_changelog():
-    #     return '/nas/softechict-nas-2/mboschini/cool_scripts/nodeocc_ii_changelog/%s.txt' % version
-
-    # def save_changelog():
-    #     os.makedirs(os.path.expanduser('~') + '/.nodeocc_ii/', exist_ok=True)
-    #     with open(os.path.expanduser('~') + '/.nodeocc_ii/last_clog.txt', 'w') as f:
-    #         f.write(version)
-
-    # def save_version(vv):
-    #     os.makedirs(os.path.expanduser('~') + '/.nodeocc_ii/', exist_ok=True)
-    #     with open(os.path.expanduser('~') + '/.nodeocc_ii/last_ver_not.txt', 'w') as f:
-    #         f.write(vv)
-
-    def theres_newversion():
-        # if os.path.exists('/nas/softechict-nas-2/mboschini/cool_scripts/nodeocc_ii_last_release.txt'):
-        #     with open('/nas/softechict-nas-2/mboschini/cool_scripts/nodeocc_ii_last_release.txt') as f:
-        #         lastver = f.read().strip()
-        #     if version < lastver:
-        #         if os.path.exists(os.path.expanduser('~') + '/.nodeocc_ii/last_ver_not.txt'):
-        #             with open(os.path.expanduser('~') + '/.nodeocc_ii/last_ver_not.txt') as f:
-        #                 lastver_n = f.read().strip()
-        #             if lastver_n == lastver:
-        #                 return False
-        #         return lastver
-        # return False
-        return False
-
-    if theres_changelog():
-        with open(get_changelog()) as f:
-            chlog = f.readlines()
-        while k == -1:
-            stdscr.refresh()
-            for i, line in enumerate(chlog):
-                stdscr.addstr(i, 0, line)
-            try:
-                k = stdscr.getch()
-            except:
-                k = ord('z')
-        save_changelog()
+    await instance.fetch()
 
     k = -1
-    vv = theres_newversion()
-    if vv != False:
-        while k == -1:
-            stdscr.refresh()
-            stdscr.addstr(1, 0, 'NEW VERSION AVAILABLE')
-            stdscr.addstr(2, 0, 'nodeocc_ii v%s' % vv)
-            stdscr.addstr(4, 0, 'PRESS ANY KEY TO CONTINUE...')
-            try:
-                k = stdscr.getch()
-            except:
-                k = ord('z')
-        save_version(vv)
-
+    
     stdscr.clear()
     k = -1
     s_lines,s_columns = stdscr.getmaxyx()
     while k != ord('q') and k != 'q':
-        
+        await instance.fetch()
+
+        update_views(instance, a_filter_values[instance.a_filter])
+
         valid_mouse = False
         if k == curses.KEY_MOUSE:
             valid_mouse, ck = process_mouse()
@@ -388,23 +338,23 @@ def main(stdscr):
         # process input
         # RIGHT
         if k == ord('d') or k == 261: 
-            a_filter = (a_filter + 1) % len(a_filter_values)
+            instance.a_filter = (instance.a_filter + 1) % len(a_filter_values)
             instance.voff = 0
             outdated = True
         # LEFT
         elif k == ord('a') or k == 260:
-            a_filter = (a_filter + (len(a_filter_values)-1)) % len(a_filter_values)
+            instance.a_filter = (instance.a_filter + (len(a_filter_values)-1)) % len(a_filter_values)
             instance.voff = 0
             outdated = True
         elif valid_mouse and type(k) == str and k.startswith('AF_'):
-            a_filter = int(k.split('AF_')[1])
+            instance.a_filter = int(k.split('AF_')[1])
         # DOWN
         elif k == ord('s') or k == 258:
             instance.voff += 1
         # UP
         elif k == ord('w') or k == 259:
             instance.voff -= 1
-        outdated = outdated or time.time() - refreshtime > timedelta_refresh
+        outdated = outdated #or time.time() - refreshtime > timedelta_refresh
 
         if k == ord('g'):
             instance.view_mode = "gpu" if instance.view_mode == "ram" else "ram"
@@ -424,19 +374,13 @@ def main(stdscr):
                 instance.time = 20
             elif instance.time == 20:
                 instance.time = 2
-            stdscr.timeout(int(instance.time*1000))
+            # stdscr.timeout(int(instance.time*1000))
 
         xoffset = 0#(columns - 104) //2
         instance.xoffset = xoffset
 
-        # fetch state in separate thread
-        instance.fetch(a_filter)
-        # if outdated:
-        #     threading.Thread(target=instance.fetch, args=(a_filter,)).start()
-        #     outdated = False
-        #     refreshtime = time.time()
+        # await instance.fetch()
             
-
         # update state (recompute lines for safety)
         if lines != s_lines or columns != s_columns:
             stdscr.clear()
@@ -444,6 +388,7 @@ def main(stdscr):
             s_lines = lines
             
         stdscr.refresh()
+
 
         left_width = columns - 33 #72
         instance.left_width = left_width
@@ -462,17 +407,17 @@ def main(stdscr):
         # render menu
         stdscr.addstr(lines-1,xoffset + 1 + 0, '◀')
         instance.add_button(lines-1,xoffset + 1 + 0, '◀', ord('a'))
-        stdscr.addstr(lines-1,xoffset + 1 + 2, 'ALL', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[a_filter] == None else 0))
+        stdscr.addstr(lines-1,xoffset + 1 + 2, 'ALL', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == None else 0))
 
         instance.add_button(lines-1,xoffset + 1 + 2, 'ALL', 'AF_0')
 
-        stdscr.addstr(lines-1,xoffset + 1 + 6, 'ME', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[a_filter] == 'me' else 0))
+        stdscr.addstr(lines-1,xoffset + 1 + 6, 'ME', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'me' else 0))
         instance.add_button(lines-1,xoffset + 1 + 6, 'ME', 'AF_1')
-        stdscr.addstr(lines-1,xoffset + 1 + 9, 'PROD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[a_filter] == 'prod' else 0))
+        stdscr.addstr(lines-1,xoffset + 1 + 9, 'PROD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'prod' else 0))
         instance.add_button(lines-1,xoffset + 1 + 9, 'PROD', 'AF_2')
-        stdscr.addstr(lines-1,xoffset + 1 + 14,'STUD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[a_filter] == 'stud' else 0))
+        stdscr.addstr(lines-1,xoffset + 1 + 14,'STUD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'stud' else 0))
         instance.add_button(lines-1,xoffset + 1 + 14,'STUD', 'AF_3')
-        stdscr.addstr(lines-1,xoffset + 1 + 19,'CVCS', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[a_filter] == 'cvcs' else 0))
+        stdscr.addstr(lines-1,xoffset + 1 + 19,'CVCS', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'cvcs' else 0))
         instance.add_button(lines-1,xoffset + 1 + 19,'CVCS', 'AF_4')
 
         stdscr.addstr(lines-1,xoffset + 1 + 24, '▶')
@@ -530,3 +475,4 @@ def main(stdscr):
         except:
             k = ord('z')
 
+    

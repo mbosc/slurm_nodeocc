@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 import curses
@@ -44,11 +45,11 @@ class Singleton:
 
         self.show_account = False
         self.show_prio = False
-        self.time = 5
 
         self.inf = None
         self.jobs = []
         self.a_filter = 0
+        self.k = -1
         
         if self.args.daemon_only:
             logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
@@ -88,7 +89,7 @@ class Singleton:
         self.sock.bind(('', 0))
 
         self.port = self.sock.getsockname()[1]
-        self.sock.settimeout(11)
+        self.sock.settimeout(2)
         self.log(f"Socket created as master on port {self.port}")
 
         # get pid of current process
@@ -240,16 +241,156 @@ def process_mouse():
     except:
         return False, -1
 
+async def handle_keys(stdscr, instance):
+    k = stdscr.getch()
+    instance.k = k
+        
+    valid_mouse = False
+    if k == curses.KEY_MOUSE:
+        valid_mouse, ck = process_mouse()
+        if valid_mouse:
+            k = ck
+
+    instance.mouse_state = {}
+
+    # process input
+    # RIGHT
+    if k == ord('d') or k == 261: 
+        instance.a_filter = (instance.a_filter + 1) % len(a_filter_values)
+        instance.voff = 0
+    # LEFT
+    elif k == ord('a') or k == 260:
+        instance.a_filter = (instance.a_filter + (len(a_filter_values)-1)) % len(a_filter_values)
+        instance.voff = 0
+    elif valid_mouse and type(k) == str and k.startswith('AF_'):
+        instance.a_filter = int(k.split('AF_')[1])
+    # DOWN
+    elif k == ord('s') or k == 258:
+        instance.voff += 1
+    # UP
+    elif k == ord('w') or k == 259:
+        instance.voff -= 1
+
+    if k == ord('g'):
+        instance.view_mode = "gpu" if instance.view_mode == "ram" else "ram"
+    if k == ord('j'):
+        instance.job_id_type = "true" if instance.job_id_type == "agg" else "agg"
+    
+    if k == ord('t'):
+        instance.show_account = not instance.show_account
+    if k == ord('p'):
+        instance.show_prio = not instance.show_prio
+
+async def update_screen(stdscr, instance, s_lines, s_columns):
+    update_views(stdscr, instance, a_filter_values[instance.a_filter])
+
+    lines,columns = stdscr.getmaxyx()
+    if instance.k == ord('y'):
+        stdscr.clear()
+    
+    totsize = 106
+    if instance.show_account:
+        totsize += 10
+    if instance.show_prio:
+        totsize += 8
+    
+    if columns < totsize:
+        stdscr.addstr(1, 1, "MINIMUM TERM. WIDTH")
+        stdscr.addstr(2, 1, f"REQUIRED: {totsize}")
+        stdscr.addstr(3, 1, "CURRENT: " + str(columns))
+        stdscr.refresh()
+        return
+        
+    xoffset = 0#(columns - 104) //2
+    instance.xoffset = xoffset
+
+    # await instance.fetch()
+        
+    # update state (recompute lines for safety)
+    if lines != s_lines or columns != s_columns:
+        stdscr.clear()
+        s_columns = columns
+        s_lines = lines
+        
+    stdscr.refresh()
+
+    left_width = columns - 33 #72
+    instance.left_width = left_width
+    left_window = curses.newwin(lines-1, left_width, 0, xoffset)
+    left_buffer = Buffer(left_window, lines, stdscr)
+    right_window = curses.newwin(lines-1,31, 0, xoffset + left_width + 1)
+    right_buffer = Buffer(right_window, lines, stdscr)
+        
+        
+    left_buffer.write(instance.rens)
+    right_buffer.write(instance.nocc)
+    right_buffer.refresh()
+    left_buffer.refresh(instance.voff, True)
+    
+    # render menu
+    stdscr.addstr(lines-1,xoffset + 1 + 0, '◀')
+    instance.add_button(lines-1,xoffset + 1 + 0, '◀', ord('a'))
+    stdscr.addstr(lines-1,xoffset + 1 + 2, 'ALL', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == None else 0))
+
+    instance.add_button(lines-1,xoffset + 1 + 2, 'ALL', 'AF_0')
+
+    stdscr.addstr(lines-1,xoffset + 1 + 6, 'ME', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'me' else 0))
+    instance.add_button(lines-1,xoffset + 1 + 6, 'ME', 'AF_1')
+    stdscr.addstr(lines-1,xoffset + 1 + 9, 'PROD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'prod' else 0))
+    instance.add_button(lines-1,xoffset + 1 + 9, 'PROD', 'AF_2')
+    stdscr.addstr(lines-1,xoffset + 1 + 14,'STUD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'stud' else 0))
+    instance.add_button(lines-1,xoffset + 1 + 14,'STUD', 'AF_3')
+    stdscr.addstr(lines-1,xoffset + 1 + 19,'CVCS', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'cvcs' else 0))
+    instance.add_button(lines-1,xoffset + 1 + 19,'CVCS', 'AF_4')
+
+    stdscr.addstr(lines-1,xoffset + 1 + 24, '▶')
+    instance.add_button(lines-1,xoffset + 1 + 24, '▶', ord('d'))
+    stdscr.addstr(lines-1,xoffset + 1 + 25, ' ' * (columns - 27 - xoffset))
+    
+    stdscr.addstr(lines-1,left_width - 18,'[Q:QUIT]', curses.color_pair(2))
+    instance.add_button(lines-1,left_width - 18,'[Q:QUIT]', ord('q')) #53
+
+    stdscr.addstr(lines-1,left_width - 18 + 8,'[Y:REDRAW]', curses.color_pair(2))
+    instance.add_button(lines-1,left_width - 18 + 8,'[Y:REDRAW]', ord('y'))
+
+    stdscr.addstr(0, columns - 12, '[G:' , curses.color_pair(2))
+    stdscr.addstr(0, columns - 9, 'GPU' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'gpu' else 0))
+    stdscr.addstr(0, columns - 9 + 3, 'RAM' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'ram' else 0))
+    stdscr.addstr(0, columns - 9 + 6, ']' , curses.color_pair(2))
+    instance.add_button(0,columns - 12,'[G:GPURAM]', ord('g'))
+
+    stdscr.addstr(lines-1, xoffset + 25 + 2, '[J:' , curses.color_pair(2))
+    stdscr.addstr(lines-1, xoffset + 25 + 2+3, 'AGG' , curses.color_pair(2) | (curses.A_REVERSE if instance.job_id_type == 'agg' else 0))
+    stdscr.addstr(lines-1, xoffset + 25 + 2+3+3, 'TRUE' , curses.color_pair(2) | (curses.A_REVERSE if instance.job_id_type == 'true' else 0))
+    stdscr.addstr(lines-1, xoffset + 25 + 2+3+3+4, ']' , curses.color_pair(2))
+    instance.add_button(lines-1,xoffset+25+2,'[J:AGGTRUE]', ord('j'))
+
+    stdscr.addstr(lines-1, xoffset + 37 + 2, '[P:' , curses.color_pair(2))
+    stdscr.addstr(lines-1, xoffset + 37 + 2+3, 'PRIORITY' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_prio else 0))
+    stdscr.addstr(lines-1, xoffset + 37 + 2+3+8, ']' , curses.color_pair(2))
+    instance.add_button(lines-1,xoffset+37+2,'[P:PRIORITY]', ord('p'))
+
+    stdscr.addstr(lines-1, xoffset + 50 + 2, '[T:' , curses.color_pair(2))
+    stdscr.addstr(lines-1, xoffset + 50 + 2+3, 'ACCOUNT' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_account else 0))
+    stdscr.addstr(lines-1, xoffset + 50 + 2+3+7, ']' , curses.color_pair(2))
+    instance.add_button(lines-1,xoffset+50+2,'[T:ACCOUNT]', ord('t'))
+
+    signature = instance.signature
+    stdscr.addstr(lines-1,columns-2-len(signature), signature)
+
+    stdscr.refresh()
+    curses.doupdate()
+
 async def main(stdscr):
     # Clear screen
     instance = Singleton.getInstance()
-    instance.log(f"MAIN")
     stdscr.clear()
     curses.noecho()
     curses.curs_set(0)
+    stdscr.timeout(100)
 
     stdscr.nodelay(True)
-    # timedelta_refresh  = instance.time
+
     # stdscr.timeout(int(timedelta_refresh*1000))
     _ = curses.mousemask(1)
 
@@ -286,193 +427,22 @@ async def main(stdscr):
     curses.init_pair(15, -1, 6)
     # curses.init_pair(15, curses.COLOR_WHITE, curses.COLOR_CYAN) (reversed because >9)
     # status
-    k = -1
 
     instance.a_filter = 0
-    outdated = True
 
     await instance.fetch()
-
-    k = -1
     
     stdscr.clear()
-    k = -1
+
     s_lines,s_columns = stdscr.getmaxyx()
-    while k != ord('q') and k != 'q':
-        await instance.fetch()
 
-        update_views(instance, a_filter_values[instance.a_filter])
+    while instance.k != ord('q') and instance.k != 'q':
+        time.sleep(0.2)
+        instance.log("DAI")
 
-        valid_mouse = False
-        if k == curses.KEY_MOUSE:
-            valid_mouse, ck = process_mouse()
-            if valid_mouse:
-                k = ck
-                
-            if k == ord('q'): break
-
-
-        instance.mouse_state = {}
-
-        lines,columns = stdscr.getmaxyx()
-        if k == ord('y'):
-            stdscr.clear()
-
-        totsize = 106
-        if instance.show_account:
-            totsize += 10
-        if instance.show_prio:
-            totsize += 8
-        
-        if columns < totsize:
-            try:
-                k = stdscr.getch()
-            except:
-                k = ord('z')
-            stdscr.addstr(1, 1, "MINIMUM TERM. WIDTH")
-            stdscr.addstr(2, 1, f"REQUIRED: {totsize}")
-            stdscr.addstr(3, 1, "CURRENT: " + str(columns))
-            stdscr.refresh()
-            continue
-
-        # process input
-        # RIGHT
-        if k == ord('d') or k == 261: 
-            instance.a_filter = (instance.a_filter + 1) % len(a_filter_values)
-            instance.voff = 0
-            outdated = True
-        # LEFT
-        elif k == ord('a') or k == 260:
-            instance.a_filter = (instance.a_filter + (len(a_filter_values)-1)) % len(a_filter_values)
-            instance.voff = 0
-            outdated = True
-        elif valid_mouse and type(k) == str and k.startswith('AF_'):
-            instance.a_filter = int(k.split('AF_')[1])
-        # DOWN
-        elif k == ord('s') or k == 258:
-            instance.voff += 1
-        # UP
-        elif k == ord('w') or k == 259:
-            instance.voff -= 1
-        outdated = outdated #or time.time() - refreshtime > timedelta_refresh
-
-        if k == ord('g'):
-            instance.view_mode = "gpu" if instance.view_mode == "ram" else "ram"
-        if k == ord('j'):
-            instance.job_id_type = "true" if instance.job_id_type == "agg" else "agg"
-        
-        if k == ord('t'):
-            instance.show_account = not instance.show_account
-        if k == ord('p'):
-            instance.show_prio = not instance.show_prio
-        if k == ord('h'):
-            if instance.time == 2:
-                instance.time = 5
-            elif instance.time == 5:
-                instance.time = 10
-            elif instance.time == 10:
-                instance.time = 20
-            elif instance.time == 20:
-                instance.time = 2
-            # stdscr.timeout(int(instance.time*1000))
-
-        xoffset = 0#(columns - 104) //2
-        instance.xoffset = xoffset
-
+        await asyncio.gather(instance.fetch(), handle_keys(stdscr, instance), update_screen(stdscr, instance, s_lines, s_columns), asyncio.sleep(0.1))
         # await instance.fetch()
-            
-        # update state (recompute lines for safety)
-        if lines != s_lines or columns != s_columns:
-            stdscr.clear()
-            s_columns = columns
-            s_lines = lines
-            
-        stdscr.refresh()
+        # await handle_keys(stdscr, instance)
+        # await update_screen(stdscr, instance, s_lines, s_columns)
 
-
-        left_width = columns - 33 #72
-        instance.left_width = left_width
-        left_window = curses.newwin(lines-1, left_width, 0, xoffset)
-        left_buffer = Buffer(left_window, lines, stdscr)
-        right_window = curses.newwin(lines-1,31, 0, xoffset + left_width + 1)
-        right_buffer = Buffer(right_window, lines, stdscr)
-            
-            
-        left_buffer.write(instance.rens)
-        right_buffer.write(instance.nocc)
-        right_buffer.refresh()
-        left_buffer.refresh(instance.voff, True)
-        lastconf = (lines,columns)
-        
-        # render menu
-        stdscr.addstr(lines-1,xoffset + 1 + 0, '◀')
-        instance.add_button(lines-1,xoffset + 1 + 0, '◀', ord('a'))
-        stdscr.addstr(lines-1,xoffset + 1 + 2, 'ALL', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == None else 0))
-
-        instance.add_button(lines-1,xoffset + 1 + 2, 'ALL', 'AF_0')
-
-        stdscr.addstr(lines-1,xoffset + 1 + 6, 'ME', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'me' else 0))
-        instance.add_button(lines-1,xoffset + 1 + 6, 'ME', 'AF_1')
-        stdscr.addstr(lines-1,xoffset + 1 + 9, 'PROD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'prod' else 0))
-        instance.add_button(lines-1,xoffset + 1 + 9, 'PROD', 'AF_2')
-        stdscr.addstr(lines-1,xoffset + 1 + 14,'STUD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'stud' else 0))
-        instance.add_button(lines-1,xoffset + 1 + 14,'STUD', 'AF_3')
-        stdscr.addstr(lines-1,xoffset + 1 + 19,'CVCS', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'cvcs' else 0))
-        instance.add_button(lines-1,xoffset + 1 + 19,'CVCS', 'AF_4')
-
-        stdscr.addstr(lines-1,xoffset + 1 + 24, '▶')
-        instance.add_button(lines-1,xoffset + 1 + 24, '▶', ord('d'))
-        stdscr.addstr(lines-1,xoffset + 1 + 25, ' ' * (columns - 27 - xoffset))
-
-        # stdscr.addstr(lines-1,xoffset + 1 + 19, '▶')
-        # instance.add_button(lines-1,xoffset + 1 + 19, '▶', ord('d'))
-        # stdscr.addstr(lines-1,xoffset + 1 + 20, ' ' * (columns - 22 - xoffset))
-
-        
-        stdscr.addstr(lines-1,left_width - 18,'[Q:QUIT]', curses.color_pair(2))
-        instance.add_button(lines-1,left_width - 18,'[Q:QUIT]', ord('q')) #53
-
-        stdscr.addstr(lines-1,left_width - 18 + 8,'[Y:REDRAW]', curses.color_pair(2))
-        instance.add_button(lines-1,left_width - 18 + 8,'[Y:REDRAW]', ord('y'))
-
-        stdscr.addstr(0, columns - 12, '[G:' , curses.color_pair(2))
-        stdscr.addstr(0, columns - 9, 'GPU' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'gpu' else 0))
-        stdscr.addstr(0, columns - 9 + 3, 'RAM' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'ram' else 0))
-        stdscr.addstr(0, columns - 9 + 6, ']' , curses.color_pair(2))
-        instance.add_button(0,columns - 12,'[G:GPURAM]', ord('g'))
-
-        stdscr.addstr(lines-1, xoffset + 25 + 2, '[J:' , curses.color_pair(2))
-        stdscr.addstr(lines-1, xoffset + 25 + 2+3, 'AGG' , curses.color_pair(2) | (curses.A_REVERSE if instance.job_id_type == 'agg' else 0))
-        stdscr.addstr(lines-1, xoffset + 25 + 2+3+3, 'TRUE' , curses.color_pair(2) | (curses.A_REVERSE if instance.job_id_type == 'true' else 0))
-        stdscr.addstr(lines-1, xoffset + 25 + 2+3+3+4, ']' , curses.color_pair(2))
-        instance.add_button(lines-1,xoffset+25+2,'[J:AGGTRUE]', ord('j'))
-
-        stdscr.addstr(lines-1, xoffset + 37 + 2, '[P:' , curses.color_pair(2))
-        stdscr.addstr(lines-1, xoffset + 37 + 2+3, 'PRIORITY' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_prio else 0))
-        stdscr.addstr(lines-1, xoffset + 37 + 2+3+8, ']' , curses.color_pair(2))
-        instance.add_button(lines-1,xoffset+37+2,'[P:PRIORITY]', ord('p'))
-
-        stdscr.addstr(lines-1, xoffset + 50 + 2, '[T:' , curses.color_pair(2))
-        stdscr.addstr(lines-1, xoffset + 50 + 2+3, 'ACCOUNT' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_account else 0))
-        stdscr.addstr(lines-1, xoffset + 50 + 2+3+7, ']' , curses.color_pair(2))
-        instance.add_button(lines-1,xoffset+50+2,'[T:ACCOUNT]', ord('t'))
-
-        stdscr.addstr(lines-1, xoffset + 62 + 2, '[H:' , curses.color_pair(2))
-        stdscr.addstr(lines-1, xoffset + 62 + 2+3, '2' , curses.color_pair(2) | (curses.A_REVERSE if instance.time==2 else 0))
-        stdscr.addstr(lines-1, xoffset + 62 + 2+3+1, '5' , curses.color_pair(2) | (curses.A_REVERSE if instance.time==5 else 0))
-        stdscr.addstr(lines-1, xoffset + 62 + 2+3+2, '10' , curses.color_pair(2) | (curses.A_REVERSE if instance.time==10 else 0))
-        stdscr.addstr(lines-1, xoffset + 62 + 2+3+4, '20' , curses.color_pair(2) | (curses.A_REVERSE if instance.time==20 else 0))
-        stdscr.addstr(lines-1, xoffset + 62 + 2+3+6, 's]' , curses.color_pair(2))
-        instance.add_button(lines-1,xoffset+62+2+3+6,'[H:251020s]', ord('h'))
-
-        signature = instance.signature
-        stdscr.addstr(lines-1,columns-2-len(signature), signature)
-        
-        stdscr.refresh()
-        curses.doupdate()
-        try:
-            k = stdscr.getch()
-        except:
-            k = ord('z')
-
-    
+        if instance.k == ord('q'): break

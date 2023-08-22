@@ -1,6 +1,7 @@
+import curses
 from . import slurm_list, slurm_viz, styles
 
-def update_views(instance, filter):
+def update_views(stdscr, instance, filter):
     if instance.jobs is None or instance.inf is None:
         return
 

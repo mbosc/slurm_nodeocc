@@ -150,8 +150,18 @@ def display_main(stdscr):
 if __name__ == '__main__':
     if args.daemon_only:
         assert args.master, "Daemon mode only available for master"
-        
         instance = Singleton.getInstance()
+        
+        instance.log(f"Starting master daemon")
+        # register atexit
+        import atexit
+        def exit_handler():
+            instance.log(f"Exiting...")
+            instance.sock.close()
+            # remove .port file 
+            if len([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')])>0:
+                os.remove(f'/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/{str(self.port)}.port')
+        atexit.register(exit_handler)
 
         while True:
             instance.timeme(f"Updating...")
@@ -162,7 +172,6 @@ if __name__ == '__main__':
                 instance.err(traceback.format_exc())
 
             time.sleep(5)
-
             
     else:
         # configure singleton

@@ -6,8 +6,29 @@ import logging
 from logging.handlers import RotatingFileHandler
 import socket
 from view import update_views
+import traceback
+import threading
+import signal
 
 a_filter_values = [None, 'me', 'prod', 'stud', 'cvcs']
+
+def try_open_socket_as_slave(instance):
+    if len([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')]) == 0:
+        raise Exception("No master running")
+
+    cur_port = int([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')][0].split('.')[0])
+    if hasattr(instance, 'port'):
+        # check if port file has same name
+        if instance.port != cur_port:
+            instance.log(f"- MASTER HAS CHANGED PORT: {instance.port} vs {cur_port}")
+
+    instance.port = cur_port
+    instance._open_socket_as_slave(instance.port)
+
+    if instance.try_open_counter > 5:
+        instance.err(f"Could not open socket as slave on port {instance.port}")
+        raise Exception(f"Could not open socket on port {instance.port}")
+
 
 class Singleton:
     __instance = None
@@ -32,6 +53,7 @@ class Singleton:
             raise Exception("This class is a singleton!")
         else:
             Singleton.__instance = self
+        self.try_open_counter = 0
         self.voff = 0
         self.mouse_state = {}
 
@@ -66,12 +88,7 @@ class Singleton:
                 raise Exception("Master already running")
             self.port = self.create_socket_as_master()
         else:
-            # check if any .port file exists    
-            if len([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')]) == 0:
-                raise Exception("No master running")
-
-            self.port = int([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')][0].split('.')[0])
-            self.open_socket_as_slave(self.port)
+            try_open_socket_as_slave(self)
 
     def create_socket_as_master(self):
         # create udp socket for broadcasting
@@ -101,26 +118,32 @@ class Singleton:
 
         return self.port
     
-    def open_socket_as_slave(self, port):
-        # create udp socket for broadcasting
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        # check if kernel version
-        # is 3.9 or above
-        if hasattr(socket, "SO_REUSEPORT"):
-            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        else:
-            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    def _open_socket_as_slave(self, port):
+        try:
+            # create udp socket for broadcasting
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            # check if kernel version
+            # is 3.9 or above
+            if hasattr(socket, "SO_REUSEPORT"):
+                self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            else:
+                self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        #sock listen on port
-        self.sock.bind(('', port))
+            #sock listen on port
+            self.sock.bind(('', port))
 
-        self.sock.settimeout(6.5)
+            self.sock.setblocking(True)
 
-        self.sock.setblocking(False)
+            self.sock.settimeout(6.5)
+            self.log(f"Socket opened on port {self.port}")
 
-        self.log(f"Socket opened on port {self.port}")
-
-        return self.port
+            self.try_open_counter = 0
+            return self.port
+        except Exception as e:
+            self.err(f"Exception: {e}")
+            self.err(traceback.format_exc())
+            self.try_open_counter += 1
+            return None
 
     def timeme(self, msg=None):
         if not hasattr(self, '_ctime'):
@@ -241,10 +264,14 @@ def process_mouse():
     except:
         return False, -1
 
-async def handle_keys(stdscr, instance):
+def handle_keys(stdscr, instance):
     k = stdscr.getch()
+    instance.log("GOT CHAR: " + str(k))
+    if k == curses.ERR and k == -1:
+        return
+
     instance.k = k
-        
+
     valid_mouse = False
     if k == curses.KEY_MOUSE:
         valid_mouse, ck = process_mouse()
@@ -281,7 +308,7 @@ async def handle_keys(stdscr, instance):
     if k == ord('p'):
         instance.show_prio = not instance.show_prio
 
-async def update_screen(stdscr, instance, s_lines, s_columns):
+def update_screen(stdscr, instance, s_lines, s_columns):
     update_views(stdscr, instance, a_filter_values[instance.a_filter])
 
     lines,columns = stdscr.getmaxyx()
@@ -381,20 +408,52 @@ async def update_screen(stdscr, instance, s_lines, s_columns):
     stdscr.refresh()
     curses.doupdate()
 
+def get_char_async(stdscr, instance, s_lines,s_columns):
+    # s_lines,s_columns = stdscr.getmaxyx()
+    while instance.k != ord('q') and instance.k != 'q':
+        handle_keys(stdscr, instance)
+        update_screen(stdscr, instance, s_lines, s_columns)
+
+    # raise SIGINT to cancel update task
+    os.kill(os.getpid(), signal.SIGINT)
+
+async def update_screen_info(stdscr, instance, s_lines, s_columns):
+    while instance.k != ord('q') and instance.k != 'q':
+        await instance.fetch()
+        instance.log("GOT DATA FROM MASTER")
+        update_screen(stdscr, instance, s_lines, s_columns)
+
+async def wait_first(futures, instance):
+    ''' Return the result of the first future to finish. Cancel the remaining
+    futures. '''
+    try:
+        done, pending = await asyncio.wait(futures,
+            return_when=asyncio.FIRST_COMPLETED)
+
+        # cancel the other tasks, we have a result. We need to wait for the cancellations
+        # to propagate.
+        for task in pending:
+            task.cancel()
+        await asyncio.wait(pending)
+    except Exception as e:
+        instance.log(e)
+        # get trace
+        instance.log(traceback.format_exc())
+
+
 async def main(stdscr):
     # Clear screen
     instance = Singleton.getInstance()
     stdscr.clear()
     curses.noecho()
     curses.curs_set(0)
-    stdscr.timeout(100)
+    # stdscr.timeout(2000)
 
-    stdscr.nodelay(True)
+    stdscr.nodelay(False)
 
     # stdscr.timeout(int(timedelta_refresh*1000))
     _ = curses.mousemask(1)
 
-    
     curses.use_default_colors()
     # colors
     curses.init_pair(1, 3, 0)
@@ -430,19 +489,34 @@ async def main(stdscr):
 
     instance.a_filter = 0
 
+    stdscr.clear()
+    
+    def exit_handler(sig, frame):
+        instance.log(f"FORCED EXIT...")
+        instance.sock.close()
+        exit(0)
+    signal.signal(signal.SIGINT, exit_handler)
+
+    # print waiting message un stdscr
+    stdscr.addstr(0, 0, "Waiting for data from master...")
     await instance.fetch()
     
-    stdscr.clear()
-
     s_lines,s_columns = stdscr.getmaxyx()
+    update_screen(stdscr, instance, s_lines, s_columns)
+    update_screen(stdscr, instance, s_lines, s_columns) # need 2 for some reason...
 
-    while instance.k != ord('q') and instance.k != 'q':
-        time.sleep(0.2)
-        instance.log("DAI")
+    update_task = None
 
-        await asyncio.gather(instance.fetch(), handle_keys(stdscr, instance), update_screen(stdscr, instance, s_lines, s_columns), asyncio.sleep(0.1))
-        # await instance.fetch()
-        # await handle_keys(stdscr, instance)
-        # await update_screen(stdscr, instance, s_lines, s_columns)
+    curses_thread = threading.Thread(target=get_char_async, args=(stdscr, instance, s_lines, s_columns))
+    curses_thread.daemon = True
+    curses_thread.start()
 
-        if instance.k == ord('q'): break
+    update_task = asyncio.create_task(update_screen_info(stdscr, instance, s_lines, s_columns))
+    try:
+        await update_task
+    except asyncio.exceptions.CancelledError:
+        pass
+    except Exception as e:
+        instance.log(e)
+        # get trace
+        instance.log(traceback.format_exc())

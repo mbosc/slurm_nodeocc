@@ -4,7 +4,7 @@ conf_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 print(conf_path)
 sys.path.append(conf_path)
 from curses import wrapper
-from view.curses_multiwindow import main, Singleton
+from view.curses_multiwindow import main, Singleton, try_open_socket_as_slave
 
 from importlib import reload
 import readers.slurmreader 
@@ -70,6 +70,7 @@ async def get_data_slave(instance):
     inf, jobs = None, None
     try:
         # listen for data from master
+        # instance.sock.settimeout(6.5)
         data, addr = instance.sock.recvfrom(MAX_BUF)
 
         if BEGIN_DELIM in data.decode('utf-8'):
@@ -101,6 +102,10 @@ async def get_data_slave(instance):
     except BlockingIOError as e:
         pass
 
+    except TimeoutError as e:
+        instance.log(f"TIMEOUT")
+        try_open_socket_as_slave(instance)
+
     return inf, jobs
 
 async def get_all():
@@ -131,8 +136,8 @@ async def get_all():
             # loop = asyncio.get_event_loop()
             instance.timeme(f"- listening for data")
             
-            # inf, jobs = await get_data_slave(instance)
             # wait for data from master but async update the view
+            # inf, jobs = await get_data_slave(instance)
             inf, jobs = await get_data_slave(instance)
     except Exception as e:
         instance.err(f"Exception: {e}")
@@ -143,7 +148,6 @@ async def get_all():
     return inf, jobs
 
 def display_main(stdscr):
-    # asyncio.set_event_loop(asyncio.new_event_loop())
     return asyncio.run(main(stdscr))
     
 
@@ -160,7 +164,7 @@ if __name__ == '__main__':
             instance.sock.close()
             # remove .port file 
             if len([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')])>0:
-                os.remove(f'/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/{str(self.port)}.port')
+                os.remove(f'/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/{str(instance.port)}.port')
         atexit.register(exit_handler)
 
         while True:

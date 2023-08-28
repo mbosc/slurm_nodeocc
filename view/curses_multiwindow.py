@@ -128,12 +128,8 @@ class Singleton:
     def create_socket_as_master(self):
         # create udp socket for broadcasting
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        # check if kernel version
-        # is 3.9 or above
-        if hasattr(socket, "SO_REUSEPORT"):
-            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        else:
-            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # Enable broadcasting mode
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -157,12 +153,8 @@ class Singleton:
         try:
             # create udp socket for broadcasting
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-            # check if kernel version
-            # is 3.9 or above
-            if hasattr(socket, "SO_REUSEPORT"):
-                self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-            else:
-                self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
             #sock listen on port
             self.sock.bind(('', port))

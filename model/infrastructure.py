@@ -1,4 +1,4 @@
-class Node:
+class Node(object):
     """
     A simple class modelling a node within
     the SLURM infrastructure
@@ -29,7 +29,7 @@ class Maintenance:
     def __repr__(self):
         return f'RESERVATION {self.start_time} - {self.end_time} on {",".join(self.nodes)}'
 
-class Infrastructure:
+class Infrastructure(object):
     def __init__(self, maintenances, nodes, gpu_lims, ram_lims) -> None:
         self.maintenances = maintenances
         self.nodes = nodes
@@ -44,6 +44,21 @@ class Infrastructure:
         self.ram_limit_stu = ram_limit_stu
         self.ram_limit_stugrp = ram_limit_stugrp
         self.prior = ['RTX6000', '2080', 'V100', 'RTX5000', '1080', 'P100', None, 'K80']
+
+    @staticmethod
+    def from_dict(d):
+        i = Infrastructure(None, None, [None]*4, [None]*4)
+        for k,v in d.items():
+            if k == 'nodes':
+                setattr(i, k, [Node(**n) for n in v])
+            else:
+                setattr(i, k, v)
+        return i
+
+    def to_nested_dict(self):
+        return {
+            k:(v if k!='nodes' else [n.__dict__ for n in self.nodes]) for k,v in self.__dict__.items() 
+        }
 
     def __repr__(self):
         return "INFRASTRUCTURE\n" + "\n".join([str(x) for x in self.maintenances]) + "\n\n" + "\n".join([str(x) for x in self.nodes]) + f"\n\nlimits:({self.gpu_limit_pu}:{self.gpu_limit_grp}),({self.gpu_limit_stu}:{self.gpu_limit_stugrp})"

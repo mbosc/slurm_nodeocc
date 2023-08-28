@@ -1,5 +1,3 @@
-
-from readers.slurmreader import read_jobs
 from view.styles import cmdstyle, _format_to
 import pandas as pd
 import random
@@ -363,6 +361,7 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
 if __name__ == '__main__':
     import sys
     from readers.slurmreader import read_infrastructure
+    from readers.slurmreader import read_jobs
     infr = read_infrastructure()
     jobs, _ = read_jobs()
     if len(sys.argv) > 1 and sys.argv[1] == 'work':

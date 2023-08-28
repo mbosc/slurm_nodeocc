@@ -1,6 +1,6 @@
 from view.curses_multiwindow import Singleton
 
-class Job:
+class Job(object):
     """
     A simple class modelling a SLURM job
     """
@@ -18,11 +18,27 @@ class Job:
         self.priority = priority
         self.tres = tres
 
+    @staticmethod
+    def from_dict(d):
+        j = Job(None, None, None, None, None, None, None, None, None, None, None)
+        j.joblets = []
+        for k,v in d.items():
+            if k == 'joblets':
+                setattr(j, k, [Joblet(**jblet) for jblet in v])
+            else:
+                setattr(j, k, v)
+        return j
+
+    def to_nested_dict(self):
+        return {
+            k:(v if k!='joblets' else [n.__dict__ for n in self.joblets]) for k,v in self.__dict__.items() 
+        }
+
     def __repr__(self):
         return f"JOB: {self.jobid} - {self.name} ({self.user}) [{self.reason}]\n" + \
             '\n'.join(['\t' + str(x) for x in self.joblets])
 
-class Joblet:
+class Joblet(object):
     """
     A simple class modelling the portion
     of a SLURM job running on a given node

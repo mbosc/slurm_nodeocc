@@ -29,7 +29,12 @@ parser = argparse.ArgumentParser(description='Visualize slurm jobs')
 parser.add_argument('--debug', action='store_true', help='Enable logging')
 parser.add_argument('--master', action='store_true', help='Start master process')
 parser.add_argument('--daemon_only', action='store_true', help='Disable all prints - only run in background')
+parser.add_argument('--force_override', action='store_true', help='Force override of port file, kill previous instance')
+parser.add_argument('--basepath', type=str, default='/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/', help='Base path for nodeocc. Must be readable by all users')
 args = parser.parse_args()
+
+# check basepath is readable
+assert os.access(args.basepath, os.R_OK), f"Base path {args.basepath} not readable"
 
 # export args
 Singleton.getInstance(args)
@@ -46,6 +51,12 @@ program_name = "nodeocc"
 version_number = 1.00
 
 def update_data_master(instance):
+    if not instance.check_port_file_master():
+        instance.log(f"Port file dead, killing current instance")
+        instance.sock.close()
+        del instance
+        exit(0)
+
     inf = readers.slurmreader.read_infrastructure()
     instance.timeme(f"- infrastructure load")
 
@@ -163,8 +174,8 @@ if __name__ == '__main__':
             instance.log(f"Exiting...")
             instance.sock.close()
             # remove .port file 
-            if len([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')])>0:
-                os.remove(f'/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/{str(instance.port)}.port')
+            if instance.port_file_exists():
+                os.remove(instance.get_port_file_name()[1])
         atexit.register(exit_handler)
 
         while True:

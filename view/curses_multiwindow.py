@@ -13,10 +13,10 @@ import signal
 a_filter_values = [None, 'me', 'prod', 'stud', 'cvcs']
 
 def try_open_socket_as_slave(instance):
-    if len([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')]) == 0:
+    if not instance.port_file_exists():
         raise Exception("No master running")
 
-    cur_port = int([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')][0].split('.')[0])
+    cur_port = int(instance.get_port_file_name()[0].split('.')[0])
     if hasattr(instance, 'port'):
         # check if port file has same name
         if instance.port != cur_port:
@@ -44,8 +44,8 @@ class Singleton:
     # destructor
     def __del__(self):
         if self.args.master:
-            if len([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')])>0:
-                os.remove(f'/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/{str(self.port)}.port')
+            if self.port_file_exists():
+                os.remove(self.get_port_file_name()[1])
     
     def __init__(self, args=None):
         """ Virtually private constructor. """
@@ -72,6 +72,8 @@ class Singleton:
         self.jobs = []
         self.a_filter = 0
         self.k = -1
+
+        self.basepath = self.args.basepath
         
         if self.args.daemon_only:
             logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
@@ -84,11 +86,44 @@ class Singleton:
             
         if self.args.master:
             # check if any .port file exists    
-            if len([f for f in os.listdir('/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/') if f.endswith('.port')]) > 0:
-                raise Exception("Master already running")
+            if self.port_file_exists():
+                if self.args.force_override:
+                    _, port_filepath = self.get_port_file_name()
+
+                    # read pid from file
+                    with open(port_filepath, "r") as f:
+                        pid = f.read()
+                    
+                    # kill process
+                    try:
+                        os.kill(int(pid), signal.SIGTERM)
+                    except Exception as e:
+                        self.log("Could not kill process, deleting port file")
+                        self.log(e)
+                    
+                    # delete port file
+                    os.remove(port_filepath)
+                else:
+                    raise Exception("Master already running")
             self.port = self.create_socket_as_master()
         else:
             try_open_socket_as_slave(self)
+
+    def get_port_file_name(self):
+        if self.port_file_exists():
+            fname = [f for f in os.listdir(self.basepath) if f.endswith('.port')][0]
+            return fname, os.path.join(self.basepath,fname)
+        return None
+
+    def check_port_file_master(self):
+        if self.port_file_exists():
+            prev_port = int(self.get_port_file_name()[0].split('.')[0])
+            if hasattr(self, 'port'):
+                return self.port == prev_port
+        return False
+
+    def port_file_exists(self):
+        return len([f for f in os.listdir(self.basepath) if f.endswith('.port')]) > 0
 
     def create_socket_as_master(self):
         # create udp socket for broadcasting
@@ -113,7 +148,7 @@ class Singleton:
         self.pid = os.getpid()
 
         # create file to store port
-        with open(f'/nas/softechict-nas-2/mboschini/cool_scripts/new_nodeocc/{self.port}.port', "w") as f:
+        with open(os.path.join(self.basepath,f'{self.port}.port'), "w") as f:
             f.write(str(self.pid))
 
         return self.port

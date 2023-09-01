@@ -76,7 +76,9 @@ class Singleton:
         self.basepath = self.args.basepath
         
         if self.args.daemon_only:
-            logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
+            handler = RotatingFileHandler(os.path.join(self.basepath,'.master_log.txt'), maxBytes=5*1024*1024, backupCount=2, mode='w')
+            logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', 
+                                handlers=[handler])
         # set logging file
         elif self.args.debug:
             # create rotating file handler
@@ -294,6 +296,9 @@ def process_mouse():
 def handle_keys(stdscr, instance):
     k = stdscr.getch()
     instance.log("GOT CHAR: " + str(k))
+    if k == curses.KEY_RESIZE:
+        instance.log("RESIZED WINDOW")
+
     if k == curses.ERR and k == -1:
         return
 
@@ -335,10 +340,13 @@ def handle_keys(stdscr, instance):
     if k == ord('p'):
         instance.show_prio = not instance.show_prio
 
-def update_screen(stdscr, instance, s_lines, s_columns):
+def update_screen(stdscr, instance):
     update_views(stdscr, instance, a_filter_values[instance.a_filter])
+    xoffset = 0
+    instance.xoffset = xoffset
 
-    lines,columns = stdscr.getmaxyx()
+    lines, columns = os.get_terminal_size().lines, os.get_terminal_size().columns
+    s_lines, s_columns = stdscr.getmaxyx()
     if instance.k == ord('y'):
         stdscr.clear()
     
@@ -355,17 +363,13 @@ def update_screen(stdscr, instance, s_lines, s_columns):
         stdscr.refresh()
         return
         
-    xoffset = 0#(columns - 104) //2
-    instance.xoffset = xoffset
-
-    # await instance.fetch()
-        
     # update state (recompute lines for safety)
     if lines != s_lines or columns != s_columns:
+        instance.log(f"Resized window: {s_lines}x{s_columns} -> {lines}x{columns}")
         stdscr.clear()
         s_columns = columns
         s_lines = lines
-        
+
     stdscr.refresh()
 
     left_width = columns - 33 #72
@@ -435,20 +439,20 @@ def update_screen(stdscr, instance, s_lines, s_columns):
     stdscr.refresh()
     curses.doupdate()
 
-def get_char_async(stdscr, instance, s_lines,s_columns):
-    # s_lines,s_columns = stdscr.getmaxyx()
+def get_char_async(stdscr, instance):
     while instance.k != ord('q') and instance.k != 'q':
         handle_keys(stdscr, instance)
-        update_screen(stdscr, instance, s_lines, s_columns)
+        update_screen(stdscr, instance)
 
     # raise SIGINT to cancel update task
     os.kill(os.getpid(), signal.SIGINT)
 
-async def update_screen_info(stdscr, instance, s_lines, s_columns):
+async def update_screen_info(stdscr, instance):
     while instance.k != ord('q') and instance.k != 'q':
         await instance.fetch()
         instance.log("GOT DATA FROM MASTER")
-        update_screen(stdscr, instance, s_lines, s_columns)
+        update_screen(stdscr, instance)
+
 
 async def wait_first(futures, instance):
     ''' Return the result of the first future to finish. Cancel the remaining
@@ -528,17 +532,16 @@ async def main(stdscr):
     stdscr.addstr(0, 0, "Waiting for data from master...")
     await instance.fetch()
     
-    s_lines,s_columns = stdscr.getmaxyx()
-    update_screen(stdscr, instance, s_lines, s_columns)
-    update_screen(stdscr, instance, s_lines, s_columns) # need 2 for some reason...
+    update_screen(stdscr, instance)
+    update_screen(stdscr, instance) # need 2 for some reason...
 
     update_task = None
 
-    curses_thread = threading.Thread(target=get_char_async, args=(stdscr, instance, s_lines, s_columns))
+    curses_thread = threading.Thread(target=get_char_async, args=(stdscr, instance))
     curses_thread.daemon = True
     curses_thread.start()
 
-    update_task = asyncio.create_task(update_screen_info(stdscr, instance, s_lines, s_columns))
+    update_task = asyncio.create_task(update_screen_info(stdscr, instance))
     try:
         await update_task
     except asyncio.exceptions.CancelledError:

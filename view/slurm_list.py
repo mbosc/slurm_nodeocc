@@ -1,6 +1,10 @@
 from view.styles import cmdstyle, _format_to
+from datetime import datetime
 
 midlane = "─────────── ▲ DEV ──────────────────────────────── ▼ PROD ────────────"
+
+def format_date(str_date):
+    return datetime.strftime(datetime.strptime(str_date,'%Y-%m-%dT%H:%M:%S'),'%m/%d-%H:%M')
 
 def _joblet_format(instance, job, width=74, jobid_type='agg'):
     joblet_reprs = []
@@ -18,7 +22,11 @@ def _joblet_format(instance, job, width=74, jobid_type='agg'):
             joblet_repr += _format_to(job.account, 9)
             joblet_repr += ' '
             loffset += 10
-        joblet_repr += _format_to(job.name if i == 0 else '"', width - 65 - loffset, 'right')
+        if instance.show_starttime:
+            joblet_repr += _format_to(format_date(job.starttime), 12) if not isinstance(job.starttime, float) else _format_to('¯\_(ツ)_/¯', 11)
+            joblet_repr += ' '
+            loffset += 13
+        joblet_repr += _format_to(job.name if i == 0 else '"', width - 77 - loffset, 'right')
         joblet_repr += ' '
         joblet_repr += _format_to(job.user if i == 0 else '"', 13, 'right')
         joblet_repr += ' '

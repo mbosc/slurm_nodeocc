@@ -4,7 +4,7 @@ class Job(object):
     """
     A simple class modelling a SLURM job
     """
-    def __init__(self, jobid, true_jobid, name, user, partition, state, runtime, reason, account, priority, tres) -> None:
+    def __init__(self, jobid, true_jobid, name, user, partition, state, runtime, reason, account, priority, tres, start_time) -> None:
         self.jobid = jobid
         self.true_jobid = str(true_jobid)        
         self.name = name
@@ -17,10 +17,11 @@ class Job(object):
         self.account = account
         self.priority = priority
         self.tres = tres
+        self.starttime = start_time
 
     @staticmethod
     def from_dict(d):
-        j = Job(None, None, None, None, None, None, None, None, None, None, None)
+        j = Job(None, None, None, None, None, None, None, None, None, None, None, None)
         j.joblets = []
         for k,v in d.items():
             if k == 'joblets':

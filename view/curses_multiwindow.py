@@ -67,6 +67,7 @@ class Singleton:
 
         self.show_account = False
         self.show_prio = False
+        self.show_starttime = False
 
         self.inf = None
         self.jobs = []
@@ -339,6 +340,8 @@ def handle_keys(stdscr, instance):
         instance.show_account = not instance.show_account
     if k == ord('p'):
         instance.show_prio = not instance.show_prio
+    if k == ord('z'):
+        instance.show_starttime = not instance.show_starttime
 
 def update_screen(stdscr, instance):
     update_views(stdscr, instance, a_filter_values[instance.a_filter])
@@ -355,6 +358,8 @@ def update_screen(stdscr, instance):
         totsize += 10
     if instance.show_prio:
         totsize += 8
+    if instance.show_starttime:
+        totsize += 10
     
     if columns < totsize:
         stdscr.addstr(1, 1, "MINIMUM TERM. WIDTH")
@@ -423,15 +428,20 @@ def update_screen(stdscr, instance):
     stdscr.addstr(lines-1, xoffset + 25 + 2+3+3+4, ']' , curses.color_pair(2))
     instance.add_button(lines-1,xoffset+25+2,'[J:AGGTRUE]', ord('j'))
 
-    stdscr.addstr(lines-1, xoffset + 37 + 2, '[P:' , curses.color_pair(2))
-    stdscr.addstr(lines-1, xoffset + 37 + 2+3, 'PRIORITY' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_prio else 0))
-    stdscr.addstr(lines-1, xoffset + 37 + 2+3+8, ']' , curses.color_pair(2))
-    instance.add_button(lines-1,xoffset+37+2,'[P:PRIORITY]', ord('p'))
+    stdscr.addstr(lines-1, xoffset + 37 + 2, '[Z:' , curses.color_pair(2))
+    stdscr.addstr(lines-1, xoffset + 37 + 2+3, 'STARTTIME' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_starttime else 0))
+    stdscr.addstr(lines-1, xoffset + 37 + 2+3+9, ']' , curses.color_pair(2))
+    instance.add_button(lines-1,xoffset+37+2,'[Z:STARTTIME]', ord('z'))
 
-    stdscr.addstr(lines-1, xoffset + 50 + 2, '[T:' , curses.color_pair(2))
-    stdscr.addstr(lines-1, xoffset + 50 + 2+3, 'ACCOUNT' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_account else 0))
-    stdscr.addstr(lines-1, xoffset + 50 + 2+3+7, ']' , curses.color_pair(2))
-    instance.add_button(lines-1,xoffset+50+2,'[T:ACCOUNT]', ord('t'))
+    stdscr.addstr(lines-1, xoffset + 51 + 2, '[P:' , curses.color_pair(2))
+    stdscr.addstr(lines-1, xoffset + 51 + 2+3, 'PRIORITY' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_prio else 0))
+    stdscr.addstr(lines-1, xoffset + 51 + 2+3+8, ']' , curses.color_pair(2))
+    instance.add_button(lines-1,xoffset+51+2,'[P:PRIORITY]', ord('p'))
+
+    stdscr.addstr(lines-1, xoffset + 64 + 2, '[T:' , curses.color_pair(2))
+    stdscr.addstr(lines-1, xoffset + 64 + 2+3, 'ACCOUNT' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_account else 0))
+    stdscr.addstr(lines-1, xoffset + 64 + 2+3+7, ']' , curses.color_pair(2))
+    instance.add_button(lines-1,xoffset+64+2,'[T:ACCOUNT]', ord('t'))
 
     signature = instance.signature
     stdscr.addstr(lines-1,columns-2-len(signature), signature)

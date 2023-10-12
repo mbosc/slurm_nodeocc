@@ -411,8 +411,8 @@ def update_screen(stdscr, instance):
     instance.add_button(lines-1,xoffset + 1 + 24, '▶', ord('d'))
     stdscr.addstr(lines-1,xoffset + 1 + 25, ' ' * (columns - 27 - xoffset))
 
-    stdscr.addstr(lines-1,left_width - 18,'[Q:QUIT]', curses.color_pair(2))
-    instance.add_button(lines-1,left_width - 18,'[Q:QUIT]', ord('q')) #53
+    stdscr.addstr(lines-1,left_width - 8,'[Q:QUIT]', curses.color_pair(2))
+    instance.add_button(lines-1,left_width - 8,'[Q:QUIT]', ord('q')) #53
 
     stdscr.addstr(lines-1,left_width - 18 + 19,'[Y:REDRAW]', curses.color_pair(2))
     instance.add_button(lines-1,left_width - 18 + 19,'[Y:REDRAW]', ord('y'))

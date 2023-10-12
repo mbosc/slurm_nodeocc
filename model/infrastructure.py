@@ -77,7 +77,7 @@ class Infrastructure(object):
     def to_nested_dict(self):
         return {
             k: ([n.__dict__ for n in self.nodes] if k == 'nodes' else
-                [n.to_nested_dict() for n in self.maintenances] if k != 'maintenances' else v)
+                ([n.to_nested_dict() for n in self.maintenances] if k == 'maintenances' else v))
             for k, v in self.__dict__.items()
         }
 

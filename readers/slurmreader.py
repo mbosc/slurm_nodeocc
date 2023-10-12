@@ -258,9 +258,11 @@ def read_jobs():
     jobs = squeue_df.drop_duplicates('JOBID').apply(lambda line: Job(
         line['JOBID'], line['TRUE_JOBID'], line['NAME'], line['USER'],
         line['PARTITION'], line['ST'], line['TIME'], line['REASON'],
-        line['ACCOUNT'], line['PRIORITY'], line['TRES_ALLOC']
+        line['ACCOUNT'], line['PRIORITY'], line['TRES_ALLOC'], line['START_TIME']
         ), axis=1).tolist()
+    
 
+    
     for j in jobs:
         j.joblets = [x for x in joblets if x.jobid == j.jobid]
     return jobs, joblets

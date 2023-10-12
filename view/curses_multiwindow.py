@@ -1,5 +1,6 @@
 import asyncio
 import os
+from pathlib import Path
 import time
 import curses
 import logging
@@ -32,7 +33,7 @@ def try_open_socket_as_slave(instance):
 
 class Singleton:
     __instance = None
-    @staticmethod 
+    @staticmethod
     def getInstance(args=None):
         """ Static access method. """
         if Singleton.__instance == None:
@@ -40,13 +41,13 @@ class Singleton:
         if args != None:
             Singleton.__instance.args = args
         return Singleton.__instance
-    
+
     # destructor
     def __del__(self):
         if self.args.master:
             if self.port_file_exists():
-                os.remove(self.get_port_file_name()[1])
-    
+                Path(self.get_port_file_name()[1]).unlink()
+
     def __init__(self, args=None):
         """ Virtually private constructor. """
         if Singleton.__instance != None:
@@ -59,7 +60,7 @@ class Singleton:
 
         self.nocc = ""
         self.rens = ""
-        
+
         self.fetch_fn = None
         self.view_mode = 'gpu'
         self.job_id_type = 'agg'
@@ -75,37 +76,35 @@ class Singleton:
         self.k = -1
 
         self.basepath = self.args.basepath
-        
+
         if self.args.daemon_only:
             handler = RotatingFileHandler(os.path.join(self.basepath,'.master_log.txt'), maxBytes=5*1024*1024, backupCount=2, mode='w')
-            logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', 
+            logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S',
                                 handlers=[handler])
         # set logging file
         elif self.args.debug:
             # create rotating file handler
             handler = RotatingFileHandler(os.path.expanduser('~') + '/.nodeocc_ii/log.txt', maxBytes=5*1024*1024, backupCount=2, mode='w')
-            logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', 
+            logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S',
                                 handlers=[handler])
-            
+
         if self.args.master:
-            # check if any .port file exists    
+            # check if any .port file exists
             if self.port_file_exists():
                 if self.args.force_override:
                     _, port_filepath = self.get_port_file_name()
 
                     # read pid from file
-                    with open(port_filepath, "r") as f:
-                        pid = f.read()
-                    
+                    pid = Path(port_filepath).read_text()
                     # kill process
                     try:
                         os.kill(int(pid), signal.SIGTERM)
                     except Exception as e:
                         self.log("Could not kill process, deleting port file")
                         self.log(e)
-                    
+
                     # delete port file
-                    os.remove(port_filepath)
+                    Path(port_filepath).unlink()
                 else:
                     raise Exception("Master already running")
             self.port = self.create_socket_as_master()
@@ -131,7 +130,7 @@ class Singleton:
     def create_socket_as_master(self):
         # create udp socket for broadcasting
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        
+
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # Enable broadcasting mode
@@ -147,16 +146,15 @@ class Singleton:
         self.pid = os.getpid()
 
         # create file to store port
-        with open(os.path.join(self.basepath,f'{self.port}.port'), "w") as f:
-            f.write(str(self.pid))
+        Path(self.basepath,f'{self.port}.port').write_text(str(self.pid))
 
         return self.port
-    
+
     def _open_socket_as_slave(self, port):
         try:
             # create udp socket for broadcasting
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-            
+
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
             #sock listen on port
@@ -192,10 +190,10 @@ class Singleton:
     def log(self, msg):
         if self.args.debug or self.args.daemon_only:
             logging.info(msg)
-        
+
     async def fetch(self):
         _ctime = time.time()
-        
+
         if self.fetch_fn is not None:
             inf, jobs = await self.fetch_fn()#a_filter_values[self.a_filter])
             self.inf = inf if inf is not None else self.inf
@@ -212,7 +210,7 @@ class Singleton:
             for j in range(x, x+width):
                 self.mouse_state[y][j] = action
 
-        
+
 class Buffer(object):
 
     def __init__(self, window, lines, screen):
@@ -250,20 +248,23 @@ class Buffer(object):
             instance.voff = 0
         elif usevoff and voff > len(self.buffer) - self.lines + 2:
             instance.voff = len(self.buffer) - self.lines + 2
-        
+
         voff = max(min(voff, len(self.buffer) - self.lines + 2), 0)
         for nr, line in enumerate(self.buffer[voff:voff+self.lines-2]):#self.buffer[-self.lines+2:]):
             lastcol = 2
             xacc = 1
-            
+
             for chunk in line.split('<*'):
                 if ':*>' in chunk:
-                    
+
                     color = int(chunk[0:chunk.index('~')])
                     chunk_segments = chunk[chunk.index('~')+1:].split(':*>')
-                    self.window.addstr(nr + off + 1, xacc, chunk_segments[0], curses.color_pair(color) | (curses.A_REVERSE if color > 9 else 0))
+                    try:
+                        self.window.addstr(nr + off + 1, xacc, chunk_segments[0], curses.color_pair(color) | (curses.A_REVERSE if color > 9 else 0))
+                    except curses.error:
+                        pass
                     xacc += len(chunk_segments[0])
-                    
+
                     if len(chunk_segments[1]) > 0:
                         self.window.addstr(nr + off + 1, xacc, chunk_segments[1])
                         xacc += len(chunk_segments[1])
@@ -278,7 +279,7 @@ class Buffer(object):
             self.screen.addstr(self.lines-2, instance.xoffset + instance.left_width // 2 - 6, ' ▼ SCROLL ▲ ' , curses.color_pair(2) | curses.A_REVERSE)
             instance.add_button(self.lines-2, instance.xoffset + 31, 'D', ord('s'))
             instance.add_button(self.lines-2, instance.xoffset + 40, 'U', ord('w'))
-        
+
         self.window.border()
         self.window.noutrefresh()
 
@@ -315,7 +316,7 @@ def handle_keys(stdscr, instance):
 
     # process input
     # RIGHT
-    if k == ord('d') or k == 261: 
+    if k == ord('d') or k == 261:
         instance.a_filter = (instance.a_filter + 1) % len(a_filter_values)
         instance.voff = 0
     # LEFT
@@ -335,7 +336,7 @@ def handle_keys(stdscr, instance):
         instance.view_mode = "gpu" if instance.view_mode == "ram" else "ram"
     if k == ord('j'):
         instance.job_id_type = "true" if instance.job_id_type == "agg" else "agg"
-    
+
     if k == ord('t'):
         instance.show_account = not instance.show_account
     if k == ord('p'):
@@ -352,7 +353,7 @@ def update_screen(stdscr, instance):
     s_lines, s_columns = stdscr.getmaxyx()
     if instance.k == ord('y'):
         stdscr.clear()
-    
+
     totsize = 106
     if instance.show_account:
         totsize += 10
@@ -360,14 +361,14 @@ def update_screen(stdscr, instance):
         totsize += 8
     if instance.show_starttime:
         totsize += 10
-    
+
     if columns < totsize:
         stdscr.addstr(1, 1, "MINIMUM TERM. WIDTH")
         stdscr.addstr(2, 1, f"REQUIRED: {totsize}")
         stdscr.addstr(3, 1, "CURRENT: " + str(columns))
         stdscr.refresh()
         return
-        
+
     # update state (recompute lines for safety)
     if lines != s_lines or columns != s_columns:
         instance.log(f"Resized window: {s_lines}x{s_columns} -> {lines}x{columns}")
@@ -383,13 +384,13 @@ def update_screen(stdscr, instance):
     left_buffer = Buffer(left_window, lines, stdscr)
     right_window = curses.newwin(lines-1,31, 0, xoffset + left_width + 1)
     right_buffer = Buffer(right_window, lines, stdscr)
-        
-        
+
+
     left_buffer.write(instance.rens)
     right_buffer.write(instance.nocc)
     right_buffer.refresh()
     left_buffer.refresh(instance.voff, True)
-    
+
     # render menu
     stdscr.addstr(lines-1,xoffset + 1 + 0, '◀')
     instance.add_button(lines-1,xoffset + 1 + 0, '◀', ord('a'))
@@ -409,12 +410,12 @@ def update_screen(stdscr, instance):
     stdscr.addstr(lines-1,xoffset + 1 + 24, '▶')
     instance.add_button(lines-1,xoffset + 1 + 24, '▶', ord('d'))
     stdscr.addstr(lines-1,xoffset + 1 + 25, ' ' * (columns - 27 - xoffset))
-    
+
     stdscr.addstr(lines-1,left_width - 18,'[Q:QUIT]', curses.color_pair(2))
     instance.add_button(lines-1,left_width - 18,'[Q:QUIT]', ord('q')) #53
 
-    stdscr.addstr(lines-1,left_width - 18 + 8,'[Y:REDRAW]', curses.color_pair(2))
-    instance.add_button(lines-1,left_width - 18 + 8,'[Y:REDRAW]', ord('y'))
+    stdscr.addstr(lines-1,left_width - 18 + 19,'[Y:REDRAW]', curses.color_pair(2))
+    instance.add_button(lines-1,left_width - 18 + 19,'[Y:REDRAW]', ord('y'))
 
     stdscr.addstr(0, columns - 12, '[G:' , curses.color_pair(2))
     stdscr.addstr(0, columns - 9, 'GPU' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'gpu' else 0))
@@ -501,7 +502,7 @@ async def main(stdscr):
     # curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
     curses.init_pair(2, -1, -1)
     # curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_BLACK)
-    
+
     curses.init_pair(3, 1, -1)
     # curses.init_pair(3, curses.COLOR_RED, curses.COLOR_BLACK)
     curses.init_pair(4, 3, -1)
@@ -514,7 +515,7 @@ async def main(stdscr):
     # curses.init_pair(7, curses.COLOR_BLUE, curses.COLOR_BLACK)
     curses.init_pair(8, 6, -1)
     # curses.init_pair(8, curses.COLOR_CYAN, curses.COLOR_BLACK)
-    
+
     curses.init_pair(10, 3, -1)
     # curses.init_pair(10, curses.COLOR_WHITE, curses.COLOR_RED)
     curses.init_pair(11, 3, -1)
@@ -531,7 +532,7 @@ async def main(stdscr):
     instance.a_filter = 0
 
     stdscr.clear()
-    
+
     def exit_handler(sig, frame):
         instance.log(f"FORCED EXIT...")
         instance.sock.close()
@@ -541,7 +542,7 @@ async def main(stdscr):
     # print waiting message un stdscr
     stdscr.addstr(0, 0, "Waiting for data from master...")
     await instance.fetch()
-    
+
     update_screen(stdscr, instance)
     update_screen(stdscr, instance) # need 2 for some reason...
 

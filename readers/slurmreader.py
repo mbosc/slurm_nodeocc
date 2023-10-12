@@ -30,7 +30,7 @@ def _node_from_sinfo(x):
     n = Node(_node_preproc(x['NODELIST']), x.n_gpu, x.m_gpu, x.reserved, None, x.CPUS, x.MEMORY)
     if x['STATE'] == 'drng' or 'drain' in x['STATE']:
         n.status = 'drain'
-    elif x['STATE'].upper() in ['MAINT', 'DOWN', 'DOWN*', 'FAIL', 'FAILING', 'FAIL*']:
+    elif x['STATE'].upper() in ('MAINT', 'DOWN', 'DOWN*', 'FAIL', 'FAILING', 'FAIL*'):
         n.status = 'down'
     else:
         n.status = 'ok'
@@ -126,8 +126,7 @@ def _parse_scontrol_joblet_arrays(jobid):
 
 
 def _purge_cache():
-    global joblet_node_cache
-    global joblet_array_cache
+    global joblet_node_cache, joblet_array_cache
     joblet_node_cache = {}
     joblet_array_cache = {}
 
@@ -230,22 +229,22 @@ def read_jobs():
     except Exception as e:
         instance.err(f"Exception: {e}")
         return [], []
-    
+
     instance.timeme(f"\t- squeue and dataframe creation")
 
-    squeue_df['JOBID'] = squeue_df['JOBID'].apply(lambda x: str(x))
+    squeue_df['JOBID'] = squeue_df['JOBID'].apply(str)
     squeue_df = _split_column(squeue_df, 'NODELIST')
     squeue_df['gpus_per_node'] = squeue_df['TRES_PER_NODE'].apply(lambda x: try_parse_gpu(x) if type(x) == str else x)
     squeue_df['gpus_per_job'] = squeue_df['TRES_PER_JOB'].apply(lambda x: try_parse_gpu(x) if type(x) == str else x)
     squeue_df['gpus_per_task'] = squeue_df['TRES_PER_TASK'].apply(lambda x: try_parse_gpu(x) if type(x) == str else x)
 
     try:
-        squeue_df['joblet_mem'] = squeue_df['TRES_ALLOC'].apply(lambda l:get_mem_joblet(l))
+        squeue_df['joblet_mem'] = squeue_df['TRES_ALLOC'].apply(get_mem_joblet)
         squeue_df['joblet_gpus'] = squeue_df['TRES_ALLOC'].apply(lambda l:str(l).split('gpu=')[-1].split(',')[0] if 'gpu=' in str(l) else 0)
         squeue_df['joblet_cpus'] = squeue_df['TRES_ALLOC'].apply(lambda l:int(str(l).split('cpu=')[-1].split(',')[0]))
     except Exception as e:
         instance.err(f"Exception PD: {e}")
-        
+
     instance.timeme(f"\t- re processing")
     squeue_df.rename(columns={'JOBID.1': 'TRUE_JOBID'}, inplace=True)
 
@@ -260,9 +259,9 @@ def read_jobs():
         line['PARTITION'], line['ST'], line['TIME'], line['REASON'],
         line['ACCOUNT'], line['PRIORITY'], line['TRES_ALLOC'], line['START_TIME']
         ), axis=1).tolist()
-    
 
-    
+
+
     for j in jobs:
         j.joblets = [x for x in joblets if x.jobid == j.jobid]
     return jobs, joblets

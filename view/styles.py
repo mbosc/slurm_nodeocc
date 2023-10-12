@@ -16,7 +16,7 @@ def cmdstyle(color, string):
         'GREEN' : lambda x: '\033[32m' + str(x) + '\033[0m',
         'MAGENTA' : lambda x: '\033[35m' + str(x) + '\033[0m',
         'BLUE' : lambda x: '\033[34m' + str(x) + '\033[0m',
-        
+
         'LRED' : lambda x: '\033[91m' + str(x) + '\033[0m',
         'LYELLOW' : lambda x: '\033[93m' + str(x) + '\033[0m',
         'LGREEN' : lambda x: '\033[92m' + str(x) + '\033[0m',
@@ -24,7 +24,7 @@ def cmdstyle(color, string):
         'LBLUE' : lambda x: '\033[94m' + str(x) + '\033[0m',
         'LCYAN' : lambda x: '\033[96m' + str(x) + '\033[0m',
         'LWHITE' : lambda x: '\033[97m' + str(x) + '\033[0m',
-        
+
         'CYAN' : lambda x: '\033[36m' + str(x) + '\033[0m',
         'BG_CYAN': lambda x: '\033[33m' + str(x) + '\033[0m',
         'WHITE' : lambda x: '\033[37m' + str(x) + '\033[0m',
@@ -48,16 +48,16 @@ def crsstyler(color, string):
         'GREEN' : lambda x: '<*5~' + str(x) + ':*>',
         'MAGENTA' : lambda x: '<*6~' + str(x) + ':*>',
         'BLUE' : lambda x: '<*7~' + str(x) + ':*>',
-        
-        'LRED' : lambda x: str(x),
-        'LYELLOW' : lambda x: str(x),
-        'LGREEN' : lambda x: str(x),
-        'LMAGENTA' : lambda x: str(x),
-        'LBLUE' : lambda x: str(x),
-        'LCYAN' : lambda x: str(x),
-        'LWHITE' : lambda x: str(x),
-        'LBG_CYAN' : lambda x: str(x),
-        
+
+        'LRED' : str,
+        'LYELLOW' : str,
+        'LGREEN' : str,
+        'LMAGENTA' : str,
+        'LBLUE' : str,
+        'LCYAN' : str,
+        'LWHITE' : str,
+        'LBG_CYAN' : str,
+
         'CYAN' : lambda x: '<*8~' + str(x) + ':*>',
         'BG_CYAN': lambda x: '<*15~' + str(x) + ':*>',
         'WHITE' : lambda x: '<*2~' + str(x) + ':*>',

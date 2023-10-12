@@ -12,7 +12,7 @@ class Node(object):
         self.n_gpus = n_gpus
         self.gpu_model = gpu_model
         self.reserved = reserved
-        assert reserved in ['no', 'yes', 'pending']
+        assert reserved in ('no', 'yes', 'pending')
         self.status = status
         self.cpus = cpus
         self.mem = mem

@@ -1,8 +1,10 @@
-from view.styles import cmdstyle, _format_to
-import pandas as pd
 import random
-import numpy as np
 from datetime import date
+
+import numpy as np
+import pandas as pd
+
+from view.styles import _format_to, cmdstyle
 
 ogre = '''⢀⡴⠑⡄⠀⠀⠀⠀⠀⠀⠀⣀⣀⣤⣤⣤⣀⡀⠀⠀⠀⠀⠀⠀
 ⠸⡇⠀⠿⡀⠀⠀⠀⣀⡴⢿⣿⣿⣿⣿⣿⣿⣿⣷⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -10,7 +12,7 @@ ogre = '''⢀⡴⠑⡄⠀⠀⠀⠀⠀⠀⠀⣀⣀⣤⣤⣤⣀⡀⠀⠀⠀⠀⠀�
 ⠀⠀⠀⠀⢀⡀⠁⠀⠀⠈⠙⠛⠂⠈⣿⣿⣿⣿⣿⠿⡿⢿⣆⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⢀⡾⣁⣀⠀⠴⠂⠙⣗⡀⠀⢻⣿⣿⠭⢤⣴⣦⣤⣹⠀⠀⠀⢀⢴⣶⣆
 ⠀⠀⢀⣾⣿⣿⣿⣷⣮⣽⣾⣿⣥⣴⣿⣿⡿⢂⠔⢚⡿⢿⣿⣦⣴⣾⠸⣼⡿
-⠀⢀⡞⠁⠙⠻⠿⠟⠉⠀⠛⢹⣿⣿⣿⣿⣿⣌⢤⣼⣿⣾⣿⡟⠉⠀⠀⠀⠀ 
+⠀⢀⡞⠁⠙⠻⠿⠟⠉⠀⠛⢹⣿⣿⣿⣿⣿⣌⢤⣼⣿⣾⣿⡟⠉⠀⠀⠀⠀
 ⠀⣾⣷⣶⠇⠀⠀⣤⣄⣀⡀⠈⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀
 ⠀⠉⠈⠉⠀⠀⢦⡈⢻⣿⣿⣿⣶⣶⣶⣶⣤⣽⡹⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠉⠲⣽⡻⢿⣿⣿⣿⣿⣿⣿⣷⣜⣿⣿⣿⡇⠀⠀⠀⠀⠀
@@ -106,7 +108,7 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
     # this is for hot reload
     if not work:
         return "UPDATE IN PROGRESS - PLZ W8 M8 B8"
-    
+
     # who is the current user?
     if current_user is None:
         import os
@@ -122,7 +124,7 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
 
     if not infrast_down:
         highlighted_users = [current_user]
-        highlighted_users += pd.DataFrame([(j.user, sum([get_ram_block(x.mem) for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ['R', 'S']]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
+        highlighted_users += pd.DataFrame([(j.user, sum([get_ram_block(x.mem) for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ('R', 'S')]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
 
         user_styles = dict(zip(highlighted_users, ['RED','YELLOW','GREEN','MAGENTA','BLUE']))
         students = [j.user for j in jobs if 'students' in j.partition and 'cvcs' not in j.account.lower()]
@@ -153,7 +155,7 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
                         st = icon * get_ram_block(jj.mem)
                         joblet_icons.append((st, user_styles[j.user] if j.user in user_styles else None))
             joblet_icons += [(ram_drain if n.status == 'drain' else (ram_down if n.status == 'down' else (ram_pendr if n.reserved == 'pending' else ram_avail)), None)] * get_ram_block(n.mem - occs)
-            
+
             jobsplit = [""]
             count = 0
             for ic, c in joblet_icons:
@@ -209,23 +211,23 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
         #     gpuc = 'YELLOW'
         # if infrastructure.gpu_limit_pu > 6:
         #     gpuc = 'GREEN'
-        cust_print(' '.join(["  ram:", stylefn(gpuc,(f"{int(round(infrastructure.ram_limit_pu / 1024)):4d}{mem_unit}") 
-            if not pd.isna(infrastructure.ram_limit_pu) else " ∞"), 
-            " grp:", stylefn(gpuc,f"{total_jobs_prod:4d}{mem_unit}/{int(round(infrastructure.ram_limit_grp / 1024))}{mem_unit}" 
+        cust_print(' '.join(["  ram:", stylefn(gpuc,(f"{int(round(infrastructure.ram_limit_pu / 1024)):4d}{mem_unit}")
+            if not pd.isna(infrastructure.ram_limit_pu) else " ∞"),
+            " grp:", stylefn(gpuc,f"{total_jobs_prod:4d}{mem_unit}/{int(round(infrastructure.ram_limit_grp / 1024))}{mem_unit}"
             if not pd.isna(infrastructure.ram_limit_grp) else " ∞")]))
-        cust_print(' '.join([" Sram:", stylefn('CYAN',(f"{int(round(infrastructure.ram_limit_stu / 1024)):4d}{mem_unit}") 
+        cust_print(' '.join([" Sram:", stylefn('CYAN',(f"{int(round(infrastructure.ram_limit_stu / 1024)):4d}{mem_unit}")
             if not pd.isna(infrastructure.ram_limit_stu) else " ∞"),
-            "Sgrp:", stylefn('CYAN',f"{total_jobs_stud:4d}{mem_unit}/{int(round(infrastructure.ram_limit_stugrp / 1024))}{mem_unit}" 
+            "Sgrp:", stylefn('CYAN',f"{total_jobs_stud:4d}{mem_unit}/{int(round(infrastructure.ram_limit_stugrp / 1024))}{mem_unit}"
             if not pd.isna(infrastructure.ram_limit_stugrp) else " ∞")]))
 
         # print user list
         for u, c in user_styles.items():
-            if c == 'CYAN' or c == 'BG_CYAN':
+            if c in ('CYAN', 'BG_CYAN'):
                 continue
             cust_print(f" {stylefn(c, gpu_occ)} {stylefn('CYAN', u) if any(['stu' in j.partition for j in jobs if j.user == u]) else u} ({int(round(sum([sum([jj.mem / 1024 for jj in j.joblets if jj.node is not None]) for j in jobs if j.user == u])))}{mem_unit})")
         cust_print(f" {stylefn('CYAN', gpu_occ)} {stylefn('CYAN', 'students')}")
         cust_print(f" {stylefn('BG_CYAN', gpu_occ)} {stylefn('BG_CYAN', 'cvcs')}")
-        
+
     else: # if infrastrcture_down
         # print emergency screen
         cust_print('  ◀ INFRASTRUCTURE IS DOWN ▶  ', 'BG_RED')
@@ -237,7 +239,7 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
     # this is for hot reload
     if not work:
         return "UPDATE IN PROGRESS - PLZ W8 M8 B8"
-    
+
     # who is the current user?
     if current_user is None:
         import os
@@ -253,13 +255,13 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
 
     if not infrast_down:
         highlighted_users = [current_user]
-        highlighted_users += pd.DataFrame([(j.user, sum([x.n_gpus for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ['R', 'S']]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
+        highlighted_users += pd.DataFrame([(j.user, sum([x.n_gpus for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ('R', 'S')]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
 
         user_styles = dict(zip(highlighted_users, ['RED','YELLOW','GREEN','MAGENTA','BLUE']))
         students = [j.user for j in jobs if 'students' in j.partition and 'cvcs' not in j.account.lower()]
         for s in students:
             user_styles[s] = 'CYAN'
-        
+
         cvcs_students = [j.user for j in jobs if 'cvcs' in j.account.lower()]
         for s in cvcs_students:
             user_styles[s] = 'BG_CYAN'
@@ -286,7 +288,7 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
                         st = icon + (('+' if len(j.joblets) > 1 else '-') + icon) * (jj.n_gpus-1)
                         joblet_icons.append((st, user_styles[j.user] if j.user in user_styles else None))
             joblet_icons += [(gpu_drain if n.status == 'drain' else (gpu_down if n.status == 'down' else (gpu_pendr if n.reserved == 'pending' else gpu_avail)), None)] * (n.n_gpus - occs)
-            
+
             joblet_icons = [(ji[0] + (' ' if i != len(joblet_icons)-1 else ''), ji[1]) for i, ji in enumerate(joblet_icons)]
 
             jobsplit = [""]
@@ -345,12 +347,12 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
 
         # print user list
         for u, c in user_styles.items():
-            if c == 'CYAN' or c == 'BG_CYAN':
+            if c in ('CYAN', 'BG_CYAN'):
                 continue
             cust_print(f" {stylefn(c, gpu_occ)} {stylefn('CYAN', u) if any(['stu' in j.partition for j in jobs if j.user == u]) else u} ({sum([sum([jj.n_gpus for jj in j.joblets if jj.node is not None]) for j in jobs if j.user == u])})")
         cust_print(f" {stylefn('CYAN', gpu_occ)} {stylefn('CYAN', 'students')}")
         cust_print(f" {stylefn('BG_CYAN', gpu_occ)} {stylefn('BG_CYAN', 'cvcs')}")
-        
+
     else: # if infrastrcture_down
         # print emergency screen
         cust_print('  ◀ INFRASTRUCTURE IS DOWN ▶  ', 'BG_RED')
@@ -360,8 +362,8 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
 
 if __name__ == '__main__':
     import sys
-    from readers.slurmreader import read_infrastructure
-    from readers.slurmreader import read_jobs
+
+    from readers.slurmreader import read_infrastructure, read_jobs
     infr = read_infrastructure()
     jobs, _ = read_jobs()
     if len(sys.argv) > 1 and sys.argv[1] == 'work':

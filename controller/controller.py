@@ -1,5 +1,7 @@
 import sys
 import os
+from pathlib import Path
+
 conf_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 print(conf_path)
 sys.path.append(conf_path)
@@ -7,7 +9,7 @@ from curses import wrapper
 from view.curses_multiwindow import main, Singleton, try_open_socket_as_slave
 
 from importlib import reload
-import readers.slurmreader 
+import readers.slurmreader
 import view.slurm_list
 import view.slurm_viz
 import view.styles
@@ -70,7 +72,7 @@ def update_data_master(instance):
     msg = msg.encode('utf-8')
     msg_len = len(msg)
     msg = (str(msg_len)+BEGIN_DELIM).encode('utf-8') + msg + END_DELIM_ENCODED
-    instance.timeme(f"- msg encoded with len {str(msg_len)}")
+    instance.timeme(f"- msg encoded with len {msg_len}")
 
     instance.sock.sendto(msg ,('<broadcast>', instance.port))
     instance.timeme(f"- broadcast")
@@ -85,7 +87,7 @@ async def get_data_slave(instance):
         data, addr = instance.sock.recvfrom(MAX_BUF)
 
         if BEGIN_DELIM in data.decode('utf-8'):
-            msg_len = int(data.decode('utf-8').split(BEGIN_DELIM)[0]) 
+            msg_len = int(data.decode('utf-8').split(BEGIN_DELIM)[0])
             msg_len += len(str(msg_len)) + 2
             instance.timeme(f"about to receive {msg_len} bytes")
             while END_DELIM_ENCODED not in data:
@@ -101,7 +103,7 @@ async def get_data_slave(instance):
             # data = data[:msg_len]
             data = data.decode('utf-8')
             data = data.split(BEGIN_DELIM)[1]
-        
+
             msg = json.loads(data)
             inf = Infrastructure.from_dict(msg['inf'])
             jobs = [Job.from_dict(j) for j in msg['jobs']]
@@ -146,7 +148,7 @@ async def get_all():
         else:
             # loop = asyncio.get_event_loop()
             instance.timeme(f"- listening for data")
-            
+
             # wait for data from master but async update the view
             # inf, jobs = await get_data_slave(instance)
             inf, jobs = await get_data_slave(instance)
@@ -160,22 +162,22 @@ async def get_all():
 
 def display_main(stdscr):
     return asyncio.run(main(stdscr))
-    
+
 
 if __name__ == '__main__':
     if args.daemon_only:
         assert args.master, "Daemon mode only available for master"
         instance = Singleton.getInstance()
-        
+
         instance.log(f"Starting master daemon")
         # register atexit
         import atexit
         def exit_handler():
             instance.log(f"Exiting...")
             instance.sock.close()
-            # remove .port file 
+            # remove .port file
             if instance.port_file_exists():
-                os.remove(instance.get_port_file_name()[1])
+                Path(instance.get_port_file_name()[1]).unlink()
         atexit.register(exit_handler)
 
         while True:
@@ -187,7 +189,7 @@ if __name__ == '__main__':
                 instance.err(traceback.format_exc())
 
             time.sleep(5)
-            
+
     else:
         # configure singleton
 

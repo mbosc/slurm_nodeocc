@@ -333,7 +333,8 @@ def handle_keys(stdscr, instance):
         instance.voff -= 1
 
     if k == ord('g'):
-        instance.view_mode = "gpu" if instance.view_mode == "ram" else "ram"
+        # instance.view_mode = "gpu" if instance.view_mode == "ram" else "ram"
+        instance.view_mode = {"gpu": "ram", "ram": "cpu", "cpu": "gpu"}[instance.view_mode]
     if k == ord('j'):
         instance.job_id_type = "true" if instance.job_id_type == "agg" else "agg"
 
@@ -417,11 +418,12 @@ def update_screen(stdscr, instance):
     stdscr.addstr(lines-1,left_width - 18 + 19,'[Y:REDRAW]', curses.color_pair(2))
     instance.add_button(lines-1,left_width - 18 + 19,'[Y:REDRAW]', ord('y'))
 
-    stdscr.addstr(0, columns - 12, '[G:' , curses.color_pair(2))
-    stdscr.addstr(0, columns - 9, 'GPU' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'gpu' else 0))
-    stdscr.addstr(0, columns - 9 + 3, 'RAM' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'ram' else 0))
-    stdscr.addstr(0, columns - 9 + 6, ']' , curses.color_pair(2))
-    instance.add_button(0,columns - 12,'[G:GPURAM]', ord('g'))
+    stdscr.addstr(0, columns - 15, '[G:' , curses.color_pair(2))
+    stdscr.addstr(0, columns - 12, 'GPU' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'gpu' else 0))
+    stdscr.addstr(0, columns - 12 + 3, 'RAM' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'ram' else 0))
+    stdscr.addstr(0, columns - 12 + 6, 'CPU' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'cpu' else 0))
+    stdscr.addstr(0, columns - 12 + 9, ']' , curses.color_pair(2))
+    instance.add_button(0,columns - 15,'[G:GPURAMCPU]', ord('g'))
 
     stdscr.addstr(lines-1, xoffset + 25 + 2, '[J:' , curses.color_pair(2))
     stdscr.addstr(lines-1, xoffset + 25 + 2+3, 'AGG' , curses.color_pair(2) | (curses.A_REVERSE if instance.job_id_type == 'agg' else 0))

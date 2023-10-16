@@ -104,6 +104,8 @@ numfont = '⁰¹²³⁴⁵⁶⁷⁸⁹'
 # numfont = '𝟻𝟻𝟻𝟻𝟻𝟻𝟻𝟻𝟻𝟻'
 
 def to_font(num):
+    if num < 0:
+        return '⁻' + to_font(-num)
     return ''.join([numfont[int(i)] for i in str(num)])
 
 def get_ram_block(megs):

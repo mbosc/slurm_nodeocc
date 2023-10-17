@@ -396,7 +396,7 @@ def view_viz_cpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
 
     if not infrast_down:
         highlighted_users = [current_user]
-        highlighted_users += pd.DataFrame([(j.user, sum([get_cpu_block(x.cpus) for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ('R', 'S')]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
+        highlighted_users += pd.DataFrame([(j.user, sum([x.cpus for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ('R', 'S')]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
 
         user_styles = dict(zip(highlighted_users, ['RED','YELLOW','GREEN','MAGENTA','BLUE']))
         students = [j.user for j in jobs if 'students' in j.partition and 'cvcs' not in j.account.lower()]

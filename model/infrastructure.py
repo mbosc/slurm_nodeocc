@@ -49,11 +49,12 @@ class Maintenance(object):
 
 
 class Infrastructure(object):
-    def __init__(self, maintenances: List[Maintenance], nodes, gpu_lims, ram_lims) -> None:
+    def __init__(self, maintenances: List[Maintenance], nodes, gpu_lims, ram_lims, cpu_lims) -> None:
         self.maintenances = maintenances
         self.nodes = nodes
         gpu_limit_pu, gpu_limit_grp, gpu_limit_stu, gpu_limit_stugrp = gpu_lims
         ram_limit_pu, ram_limit_grp, ram_limit_stu, ram_limit_stugrp = ram_lims
+        cpu_limit_pu, cpu_limit_grp, cpu_limit_stu, cpu_limit_stugrp = cpu_lims
         self.gpu_limit_pu = gpu_limit_pu
         self.gpu_limit_grp = gpu_limit_grp
         self.gpu_limit_stu = gpu_limit_stu
@@ -62,11 +63,15 @@ class Infrastructure(object):
         self.ram_limit_grp = ram_limit_grp
         self.ram_limit_stu = ram_limit_stu
         self.ram_limit_stugrp = ram_limit_stugrp
+        self.cpu_limit_pu = cpu_limit_pu
+        self.cpu_limit_grp = cpu_limit_grp
+        self.cpu_limit_stu = cpu_limit_stu
+        self.cpu_limit_stugrp = cpu_limit_stugrp
         self.prior = ['RTX6000', '2080', 'V100', 'RTX5000', '1080', 'P100', None, 'K80']
 
     @staticmethod
     def from_dict(d):
-        i = Infrastructure(None, None, [None] * 4, [None] * 4)
+        i = Infrastructure(None, None, [None] * 4, [None] * 4, [None] * 4)
         for k, v in d.items():
             if k == 'nodes':
                 setattr(i, k, [Node(**n) for n in v])

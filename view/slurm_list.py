@@ -16,9 +16,9 @@ def _joblet_format(instance, job, width=74, jobid_type='agg'):
         joblet_repr += ' '
         loffset = 0
         if instance.show_prio:
-            joblet_repr += '(' + _format_to(job.priority, 5) + ')'
+            joblet_repr += '(' + _format_to(job.priority, 6) + ')'
             joblet_repr += ' '
-            loffset += 8
+            loffset += 9
         if instance.show_account:
             joblet_repr += _format_to(job.account, 9)
             joblet_repr += ' '
@@ -27,7 +27,7 @@ def _joblet_format(instance, job, width=74, jobid_type='agg'):
             joblet_repr += _format_to(format_date(job.starttime), 12) if not isinstance(job.starttime, float) else _format_to('¯\_(ツ)_/¯', 11)
             joblet_repr += ' '
             loffset +=13
-        joblet_repr += _format_to(job.name if i == 0 else '"', width - 64 - loffset, 'right')
+        joblet_repr += _format_to(job.name if i == 0 else '"', width - 65 - loffset, 'right')
         joblet_repr += ' '
         joblet_repr += _format_to(job.user if i == 0 else '"', 13, 'right')
         joblet_repr += ' '
@@ -119,8 +119,7 @@ def view_list(instance, jobs, filter=None, work=True, stylefn=cmdstyle, current_
             cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='MAGENTA')
 
     cust_print('─' * ((width - 72) // 2) + midlane + '─' * (width - 72 - ((width - 72) // 2)))
-
-    prodjobs = sorted([x for x in jobs_to_print if not('dev' in x.partition)], key=lambda x: (x.user, x.jobid.split('_')[0], int(x.jobid.split('_')[1]) if '_' in x.jobid and '[' not in x.jobid else (999 if '[' in x.jobid else 0)))
+    prodjobs = sorted([x for x in jobs_to_print if not('dev' in x.partition)], key=lambda x: (x.user if not instance.sort_by_prio else -x.priority , x.jobid.split('_')[0], int(x.jobid.split('_')[1]) if '_' in x.jobid and '[' not in x.jobid else (999 if '[' in x.jobid else 0)))
 
     # dev - running
     for x in prodjobs:

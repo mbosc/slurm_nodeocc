@@ -69,6 +69,7 @@ class Singleton:
         self.show_account = False
         self.show_prio = False
         self.show_starttime = False
+        self.sort_by_prio = False
 
         self.inf = None
         self.jobs = []
@@ -332,6 +333,8 @@ def handle_keys(stdscr, instance):
     elif k == ord('w') or k == 259:
         instance.voff -= 1
 
+    if k == ord('S'):
+        instance.sort_by_prio = not instance.sort_by_prio
     if k == ord('g'):
         # instance.view_mode = "gpu" if instance.view_mode == "ram" else "ram"
         instance.view_mode = {"gpu": "ram", "ram": "cpu", "cpu": "gpu"}[instance.view_mode]

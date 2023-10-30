@@ -228,7 +228,7 @@ def read_jobs():
     """
     instance = Singleton.getInstance()
 
-    squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus:\;,Account:\;,PriorityLong:\;,jobid:\;,tres: 2> /dev/null'
+    squeue_cmd = r'squeue -O jobarrayid:\;,Reason:\;,NodeList:\;,Username:\;,tres-per-job:\;,tres-per-task:\;,tres-per-node:\;,Name:\;,Partition:\;,StateCompact:\;,StartTime:\;,TimeUsed:\;,NumNodes:\;,NumTasks:\;,Reason:\;,MinMemory:\;,MinCpus:\;,Account:\;,PriorityLong:\;,jobid:\;,tres:\;,nice: 2> /dev/null'
     try:
         jobs_list = os.popen(squeue_cmd).read()
         squeue_df = pd.read_csv(StringIO(jobs_list), sep=';')
@@ -263,7 +263,8 @@ def read_jobs():
     jobs = squeue_df.drop_duplicates('JOBID').apply(lambda line: Job(
         line['JOBID'], line['TRUE_JOBID'], line['NAME'], line['USER'],
         line['PARTITION'], line['ST'], line['TIME'], line['REASON'],
-        line['ACCOUNT'], line['PRIORITY'], line['TRES_ALLOC'], line['START_TIME']
+        line['ACCOUNT'], line['PRIORITY'], line['TRES_ALLOC'], line['START_TIME'],
+        line['NICE']
         ), axis=1).tolist()
 
 

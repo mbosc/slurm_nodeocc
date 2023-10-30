@@ -52,6 +52,18 @@ if os.path.getmtime(conf_path + "/readers/slurmreader.py") > last_update:
 program_name = "nodeocc"
 version_number = 1.00
 
+def get_avg_wait_time(instance: Singleton):
+    try:
+        times = os.popen('/etc/update-motd.d/02-wait-times').readlines()[1:3]
+        prod_time = times[0].split('Average on prod is ')[1].replace(' hrs','h').replace(' mins','m').replace(' and ','').strip()
+        stud_time = times[1].split('Average on students-prod is ')[1].replace(' hrs','h').replace(' mins','m').replace(' and ','').strip()
+        return prod_time, stud_time
+    except Exception as e:
+        instance.err(f"Could not get wait times")
+        instance.err(traceback.format_exc())
+        return 'err', 'err'
+
+
 def update_data_master(instance):
     if not instance.check_port_file_master():
         instance.log(f"Port file dead, killing current instance")
@@ -63,10 +75,11 @@ def update_data_master(instance):
     instance.timeme(f"- infrastructure load")
 
     jobs, _ = readers.slurmreader.read_jobs()
+    prod_wait_time, stud_wait_time = get_avg_wait_time(instance)
     instance.timeme(f"- jobs list read")
 
     # send data to clients (if any)
-    msg = json.dumps({'inf': inf.to_nested_dict(), 'jobs': [j.to_nested_dict() for j in jobs]})
+    msg = json.dumps({'inf': inf.to_nested_dict(), 'jobs': [j.to_nested_dict() for j in jobs], 'prod_wait_time': prod_wait_time, 'stud_wait_time': stud_wait_time})
 
     # msg to bytes
     msg = msg.encode('utf-8')
@@ -80,7 +93,7 @@ def update_data_master(instance):
     return inf, jobs
 
 async def get_data_slave(instance):
-    inf, jobs = None, None
+    inf, jobs, prod_wait_time, stud_wait_time = None, None, None, None
     try:
         # listen for data from master
         # instance.sock.settimeout(6.5)
@@ -107,10 +120,12 @@ async def get_data_slave(instance):
             msg = json.loads(data)
             inf = Infrastructure.from_dict(msg['inf'])
             jobs = [Job.from_dict(j) for j in msg['jobs']]
+            prod_wait_time = msg['prod_wait_time']
+            stud_wait_time = msg['stud_wait_time']
             instance.timeme(f"- receive")
         else:
             instance.timeme(f"- no data")
-            return None, None
+            return None, None, None, None
 
     except BlockingIOError as e:
         pass
@@ -119,7 +134,7 @@ async def get_data_slave(instance):
         instance.log(f"TIMEOUT")
         try_open_socket_as_slave(instance)
 
-    return inf, jobs
+    return inf, jobs, prod_wait_time, stud_wait_time
 
 async def get_all():
     global last_update
@@ -141,7 +156,7 @@ async def get_all():
 
     instance.timeme(f"- reload")
 
-    inf, jobs = None, None
+    inf, jobs, prod_wait_time, stud_wait_time = None, None, None, None
     try:
         if args.master:
             inf, jobs = update_data_master(instance)
@@ -150,15 +165,14 @@ async def get_all():
             instance.timeme(f"- listening for data")
 
             # wait for data from master but async update the view
-            # inf, jobs = await get_data_slave(instance)
-            inf, jobs = await get_data_slave(instance)
+            inf, jobs, prod_wait_time, stud_wait_time = await get_data_slave(instance)
     except Exception as e:
         instance.err(f"Exception: {e}")
         instance.err(traceback.format_exc())
         # instance.rens = 'Something went wrong'
         # instance.nocc = ':('
 
-    return inf, jobs
+    return inf, jobs, prod_wait_time, stud_wait_time
 
 def display_main(stdscr):
     return asyncio.run(main(stdscr))

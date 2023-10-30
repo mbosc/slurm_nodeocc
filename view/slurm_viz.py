@@ -1,10 +1,9 @@
 import random
-from datetime import date
 
-import numpy as np
 import pandas as pd
 
 from view.styles import _format_to, cmdstyle
+from view.utils import is_cvcs_viz, is_student_viz, maintenance_status, to_font
 
 ogre = '''⢀⡴⠑⡄⠀⠀⠀⠀⠀⠀⠀⣀⣀⣤⣤⣤⣀⡀⠀⠀⠀⠀⠀⠀
 ⠸⡇⠀⠿⡀⠀⠀⠀⣀⡴⢿⣿⣿⣿⣿⣿⣿⣿⣷⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -100,40 +99,12 @@ cpu_pendr ='⧖'
 cpu_paused = '▚'
 cpu_down = '⨯'
 
-numfont = '⁰¹²³⁴⁵⁶⁷⁸⁹'
-# numfont = '𝟻𝟻𝟻𝟻𝟻𝟻𝟻𝟻𝟻𝟻'
-
-def to_font(num):
-    if num < 0:
-        return '⁻' + to_font(-num)
-    return ''.join([numfont[int(i)] for i in str(num)])
 
 def get_ram_block(megs):
     return int(round(megs/1024/mem_size))
 
 def get_cpu_block(cpus):
     return cpus//cpu_size
-
-def maintenance_status(infrastructure):
-    onmain = False
-    waitString = ''
-    if len(infrastructure.maintenances):
-        next_maintenance = sorted(infrastructure.maintenances, key=lambda x: x.start_time)[0]
-        time_to_maintenance = (next_maintenance.start_time - np.datetime64('now')).astype(int)
-        time_to_maintenance -= (1e9 * 60 * 60) * 2 # TODO fix timezone
-        if time_to_maintenance < 0 and (next_maintenance.end_time - np.datetime64('now')).seconds > 0:
-            onmain = True
-        else:
-            tt_d = int(time_to_maintenance / (1e9 * 60 * 60 * 24))
-            tt_h = int(time_to_maintenance % (1e9 * 60 * 60 * 24) / (1e9 * 60 * 60))
-            tt_m = int(time_to_maintenance % (1e9 * 60 * 60) / (1e9 * 60))
-            if tt_d > 0:
-                waitString = '%dd' % tt_d
-            elif tt_h > 0:
-                waitString = '%dh' % tt_h
-            else:
-                waitString = '%dm' % tt_m
-    return onmain, waitString
 
 
 def view_viz(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user=None, mode='gpu'):
@@ -167,11 +138,11 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
         highlighted_users += pd.DataFrame([(j.user, sum([get_ram_block(x.mem) for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ('R', 'S')]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
 
         user_styles = dict(zip(highlighted_users, ['RED','YELLOW','GREEN','MAGENTA','BLUE']))
-        students = [j.user for j in jobs if 'students' in j.partition and 'cvcs' not in j.account.lower()]
+        students = [j.user for j in jobs if is_student_viz(j)]
         for s in students:
             user_styles[s] = 'CYAN'
 
-        cvcs_students = [j.user for j in jobs if 'cvcs' in j.account.lower()]
+        cvcs_students = [j.user for j in jobs if is_cvcs_viz(j)]
         for s in cvcs_students:
             user_styles[s] = 'BLUE'
 
@@ -250,7 +221,7 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
                 continue
             cust_print(f" {stylefn(c, gpu_occ)} {stylefn('CYAN', u) if any(['stu' in j.partition for j in jobs if j.user == u]) else u} ({int(round(sum([sum([jj.mem / 1024 for jj in j.joblets if jj.node is not None]) for j in jobs if j.user == u])))}{mem_unit})")
         cust_print(f" {stylefn('CYAN', gpu_occ)} {stylefn('CYAN', 'students')}")
-        cust_print(f" {stylefn('BLUE', gpu_occ)} {stylefn('BLUE', 'cvcs')}")
+        cust_print(f" {stylefn('BLUE', gpu_occ)} {stylefn('BLUE', 'cvcs/ai4a')}")
 
     else: # if infrastrcture_down
         # print emergency screen
@@ -282,11 +253,11 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
         highlighted_users += pd.DataFrame([(j.user, sum([x.n_gpus for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ('R', 'S')]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
 
         user_styles = dict(zip(highlighted_users, ['RED','YELLOW','GREEN','MAGENTA','BLUE']))
-        students = [j.user for j in jobs if 'students' in j.partition and 'cvcs' not in j.account.lower()]
+        students = [j.user for j in jobs if is_student_viz(j)]
         for s in students:
             user_styles[s] = 'CYAN'
 
-        cvcs_students = [j.user for j in jobs if 'cvcs' in j.account.lower()]
+        cvcs_students = [j.user for j in jobs if is_cvcs_viz(j)]
         for s in cvcs_students:
             user_styles[s] = 'BLUE'
 
@@ -358,8 +329,8 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
             if c in ('CYAN', 'BLUE'):
                 continue
             cust_print(f" {stylefn(c, gpu_occ)} {stylefn('CYAN', u) if any(['stu' in j.partition for j in jobs if j.user == u]) else u} ({sum([sum([jj.n_gpus for jj in j.joblets if jj.node is not None]) for j in jobs if j.user == u])})")
-        cust_print(f" {stylefn('CYAN', gpu_occ)} {stylefn('CYAN', 'students')} ({sum([sum([jj.n_gpus for jj in j.joblets if jj.node is not None]) for j in jobs if 'students' in j.partition and 'cvcs' not in j.account.lower()])})")
-        cust_print(f" {stylefn('BLUE', gpu_occ)} {stylefn('BLUE', 'cvcs')} ({sum([sum([jj.n_gpus for jj in j.joblets if jj.node is not None]) for j in jobs if 'cvcs' in j.account.lower()])})")
+        cust_print(f" {stylefn('CYAN', gpu_occ)} {stylefn('CYAN', 'students')} ({sum([sum([jj.n_gpus for jj in j.joblets if jj.node is not None]) for j in jobs if is_student_viz(j)])})")
+        cust_print(f" {stylefn('BLUE', gpu_occ)} {stylefn('BLUE', 'cvcs/ai4a')} ({sum([sum([jj.n_gpus for jj in j.joblets if jj.node is not None]) for j in jobs if is_cvcs_viz(j)])})")
 
     else: # if infrastrcture_down
         # print emergency screen
@@ -396,14 +367,14 @@ def view_viz_cpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
 
     if not infrast_down:
         highlighted_users = [current_user]
-        highlighted_users += pd.DataFrame([(j.user, sum([get_cpu_block(x.cpus) for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ('R', 'S')]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
+        highlighted_users += pd.DataFrame([(j.user, sum([x.cpus for x in j.joblets])) for j in jobs if j.user != current_user and j.state in ('R', 'S')]).groupby(0).sum()[1].sort_values(ascending=False).iloc[:3].index.to_list()
 
         user_styles = dict(zip(highlighted_users, ['RED','YELLOW','GREEN','MAGENTA','BLUE']))
-        students = [j.user for j in jobs if 'students' in j.partition and 'cvcs' not in j.account.lower()]
+        students = [j.user for j in jobs if is_student_viz(j)]
         for s in students:
             user_styles[s] = 'CYAN'
 
-        cvcs_students = [j.user for j in jobs if 'cvcs' in j.account.lower()]
+        cvcs_students = [j.user for j in jobs if is_cvcs_viz(j)]
         for s in cvcs_students:
             user_styles[s] = 'BLUE'
 
@@ -474,22 +445,22 @@ def view_viz_cpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
         #     gpuc = 'YELLOW'
         # if infrastructure.gpu_limit_pu > 6:
         #     gpuc = 'GREEN'
-        cust_print(' '.join(["  cpu:", stylefn(gpuc,(f"{int(round(infrastructure.ram_limit_pu)):4d}{cpu_size}")
-            if not pd.isna(infrastructure.ram_limit_pu) else " ∞"),
-            " grp:", stylefn(gpuc,f"{total_jobs_prod:4d}{cpu_size}/{int(round(infrastructure.ram_limit_grp))}{cpu_size}"
-            if not pd.isna(infrastructure.ram_limit_grp) else " ∞ TODO")]))
-        cust_print(' '.join([" Scpu:", stylefn('CYAN',(f"{int(round(infrastructure.ram_limit_stu)):4d}{cpu_size}")
-            if not pd.isna(infrastructure.ram_limit_stu) else " ∞"),
-            "Sgrp:", stylefn('CYAN',f"{total_jobs_stud:4d}{cpu_size}/{int(round(infrastructure.ram_limit_stugrp))}{cpu_size}"
-            if not pd.isna(infrastructure.ram_limit_stugrp) else " ∞ TODO")]))
+        cust_print(' '.join(["  cpu:", stylefn(gpuc,(f"{int(round(infrastructure.cpu_limit_pu)):4d}{cpu_size}")
+            if not pd.isna(infrastructure.cpu_limit_pu) else " ∞"),
+            " grp:", stylefn(gpuc,f"{total_jobs_prod:4d}{cpu_size}/{int(round(infrastructure.cpu_limit_grp))}{cpu_size}"
+            if not pd.isna(infrastructure.cpu_limit_grp) else " ∞ ")]))
+        cust_print(' '.join([" Scpu:", stylefn('CYAN',(f"{int(round(infrastructure.cpu_limit_stu)):4d}{cpu_size}")
+            if not pd.isna(infrastructure.cpu_limit_stu) else " ∞"),
+            "Sgrp:", stylefn('CYAN',f"{total_jobs_stud:4d}{cpu_size}/{int(round(infrastructure.cpu_limit_stugrp))}{cpu_size}"
+            if not pd.isna(infrastructure.cpu_limit_stugrp) else " ∞ ")]))
 
         # print user list
         for u, c in user_styles.items():
             if c in ('CYAN', 'BLUE'):
                 continue
-            cust_print(f" {stylefn(c, gpu_occ)} {stylefn('CYAN', u) if any(['stu' in j.partition for j in jobs if j.user == u]) else u} ({int(round(sum([sum([jj.cpus for jj in j.joblets if jj.node is not None]) for j in jobs if j.user == u])))}{cpu_unit})")
+            cust_print(f" {stylefn(c, gpu_occ)} {stylefn('CYAN', u) if any(['stu' in j.partition for j in jobs if j.user == u]) else u} ({sum([sum([jj.cpus for jj in j.joblets if jj.node is not None]) for j in jobs if j.user == u])}{cpu_unit})")
         cust_print(f" {stylefn('CYAN', gpu_occ)} {stylefn('CYAN', 'students')}")
-        cust_print(f" {stylefn('BLUE', gpu_occ)} {stylefn('BLUE', 'cvcs')}")
+        cust_print(f" {stylefn('BLUE', gpu_occ)} {stylefn('BLUE', 'cvcs/ai4a')}")
 
     else: # if infrastrcture_down
         # print emergency screen

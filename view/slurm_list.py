@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from view.styles import _format_to, cmdstyle
+from view.utils import is_cvcs_viz, is_student_viz
 
 midlane = "─────────── ▲ DEV ──────────────────────────────── ▼ PROD ────────────"
 
@@ -81,11 +82,11 @@ def view_list(instance, jobs, filter=None, work=True, stylefn=cmdstyle, current_
     for j in jobs:
         if j.user == current_user and 'me' in printable:
             jobs_to_print.append(j)
-        elif 'stu' in j.partition and 'stud' in printable and 'cvcs' not in j.account.lower():
+        elif 'stu' in j.partition and 'stud' in printable and is_student_viz(j):
             jobs_to_print.append(j)
         elif (not 'stu' in j.partition) and 'prod' in printable:
             jobs_to_print.append(j)
-        elif 'cvcs' in printable and 'cvcs' in j.account.lower():
+        elif 'cvcs' in printable and is_cvcs_viz(j):
             jobs_to_print.append(j)
 
     class RetScope:

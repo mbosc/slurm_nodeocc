@@ -87,6 +87,8 @@ def _read_limits():
     lims['grpG'] = lims['GrpTRES'].apply(lambda x: int(x.split('gres/gpu=')[1].split(',')[0]) if type(x)==str and 'gres/gpu' in x else float('nan'))
     lims['puM'] = lims['MaxTRESPU'].apply(lambda x: parse_mem(x.split('mem=')[1].split(',')[0]) if type(x)==str and 'mem=' in x else float('nan'))
     lims['grpM'] = lims['GrpTRES'].apply(lambda x: parse_mem(x.split('mem=')[1].split(',')[0]) if type(x)==str and 'mem=' in x else float('nan'))
+    lims['puC'] = lims['MaxTRESPU'].apply(lambda x: int(x.split('cpu=')[1].split(',')[0]) if type(x)==str and 'cpu=' in x else float('nan'))
+    lims['grpC'] = lims['GrpTRES'].apply(lambda x: int(x.split('cpu=')[1].split(',')[0]) if type(x)==str and 'cpu=' in x else float('nan'))
     return (lims.loc[lims['Name'] == 'prod', 'puG'].iloc[0],
             lims.loc[lims['Name'] == 'prod', 'grpG'].iloc[0],
             lims.loc[lims['Name'] == 'students-prod', 'puG'].iloc[0],
@@ -94,7 +96,11 @@ def _read_limits():
             lims.loc[lims['Name'] == 'prod', 'puM'].iloc[0],
             lims.loc[lims['Name'] == 'prod', 'grpM'].iloc[0],
             lims.loc[lims['Name'] == 'students-prod', 'puM'].iloc[0],
-            lims.loc[lims['Name'] == 'students-prod', 'grpM'].iloc[0])
+            lims.loc[lims['Name'] == 'students-prod', 'grpM'].iloc[0],
+            lims.loc[lims['Name'] == 'prod', 'puC'].iloc[0],
+            lims.loc[lims['Name'] == 'prod', 'grpC'].iloc[0],
+            lims.loc[lims['Name'] == 'students-prod', 'puC'].iloc[0],
+            lims.loc[lims['Name'] == 'students-prod', 'grpC'].iloc[0])
 
 def read_infrastructure():
     """
@@ -103,8 +109,8 @@ def read_infrastructure():
     """
     maints, reserv, pending_res = _read_maintenances()
     nodes = _read_nodes(reserv, pending_res)
-    mpuG, mpugG, mspuG, mspugG, mpuM, mpugM, mspuM, mspugM = _read_limits()
-    return Infrastructure(maints, nodes, (mpuG, mpugG, mspuG, mspugG), (mpuM, mpugM, mspuM, mspugM))
+    mpuG, mpugG, mspuG, mspugG, mpuM, mpugM, mspuM, mspugM, mpuC, mpugC, mspuC, mspugC = _read_limits()
+    return Infrastructure(maints, nodes, (mpuG, mpugG, mspuG, mspugG), (mpuM, mpugM, mspuM, mspugM), (mpuC, mpugC, mspuC, mspugC))
 
 
 def _parse_scontrol_joblet_nodes(jobid):

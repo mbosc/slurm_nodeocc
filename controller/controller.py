@@ -54,7 +54,7 @@ version_number = 1.00
 
 def get_avg_wait_time(instance: Singleton):
     try:
-        times = os.popen('/etc/update-motd.d/02-wait-times').readlines()[1:3]
+        times = os.popen('python compute_wait_time.py').readlines()[1:3]
         prod_time = times[0].split('Average on prod is ')[1].replace(' hrs','h').replace(' mins','m').replace(' and ','').strip()
         stud_time = times[1].split('Average on students-prod is ')[1].replace(' hrs','h').replace(' mins','m').replace(' and ','').strip()
         return prod_time, stud_time

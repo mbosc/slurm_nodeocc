@@ -54,7 +54,7 @@ version_number = 1.00
 
 def get_avg_wait_time(instance: Singleton):
     try:
-        times = os.popen('/etc/update-motd.d/02-wait-times').readlines()[1:3]
+        times = os.popen('python compute_wait_time.py').readlines()[1:3]
         prod_time = times[0].split('Average on prod is ')[1].replace(' hrs','h').replace(' mins','m').replace(' and ','').strip()
         stud_time = times[1].split('Average on students-prod is ')[1].replace(' hrs','h').replace(' mins','m').replace(' and ','').strip()
         return prod_time, stud_time
@@ -75,11 +75,10 @@ def update_data_master(instance):
     instance.timeme(f"- infrastructure load")
 
     jobs, _ = readers.slurmreader.read_jobs()
-    prod_wait_time, stud_wait_time = get_avg_wait_time(instance)
     instance.timeme(f"- jobs list read")
 
     # send data to clients (if any)
-    msg = json.dumps({'inf': inf.to_nested_dict(), 'jobs': [j.to_nested_dict() for j in jobs], 'prod_wait_time': prod_wait_time, 'stud_wait_time': stud_wait_time})
+    msg = json.dumps({'inf': inf.to_nested_dict(), 'jobs': [j.to_nested_dict() for j in jobs]})
 
     # msg to bytes
     msg = msg.encode('utf-8')
@@ -93,7 +92,7 @@ def update_data_master(instance):
     return inf, jobs
 
 async def get_data_slave(instance):
-    inf, jobs, prod_wait_time, stud_wait_time = None, None, None, None
+    inf, jobs= None, None
     try:
         # listen for data from master
         # instance.sock.settimeout(6.5)
@@ -120,8 +119,7 @@ async def get_data_slave(instance):
             msg = json.loads(data)
             inf = Infrastructure.from_dict(msg['inf'])
             jobs = [Job.from_dict(j) for j in msg['jobs']]
-            prod_wait_time = msg['prod_wait_time']
-            stud_wait_time = msg['stud_wait_time']
+            prod_wait_time, stud_wait_time = get_avg_wait_time(instance)
             instance.timeme(f"- receive")
         else:
             instance.timeme(f"- no data")

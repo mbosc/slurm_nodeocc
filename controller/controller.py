@@ -49,7 +49,7 @@ if os.path.getmtime(conf_path + "/view/styles.py") > last_update:
 if os.path.getmtime(conf_path + "/readers/slurmreader.py") > last_update:
     last_update = os.path.getmtime(conf_path + "/readers/slurmreader.py")
 
-program_name = "nodeocc"
+program_name = "nellì_docc"
 version_number = 1.00
 
 def get_avg_wait_time(instance: Singleton):

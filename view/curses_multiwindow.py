@@ -57,6 +57,7 @@ class Singleton:
         self.try_open_counter = 0
         self.voff = 0
         self.mouse_state = {}
+        self.max_columns = 0
 
         self.nocc = ""
         self.rens = ""
@@ -69,6 +70,7 @@ class Singleton:
         self.show_account = False
         self.show_prio = False
         self.sort_by_prio = False
+        self.show_starttime = False
 
         self.inf = None
         self.jobs = []
@@ -343,7 +345,8 @@ def handle_keys(stdscr, instance):
         instance.view_mode = {"gpu": "ram", "ram": "cpu", "cpu": "gpu"}[instance.view_mode]
     if k == ord('j'):
         instance.job_id_type = "true" if instance.job_id_type == "agg" else "agg"
-
+    if k == ord('z'):
+        instance.show_starttime = not instance.show_starttime
     if k == ord('t'):
         instance.show_account = not instance.show_account
     if k == ord('p'):
@@ -356,6 +359,7 @@ def update_screen(stdscr, instance):
 
     lines, columns = os.get_terminal_size().lines, os.get_terminal_size().columns
     s_lines, s_columns = stdscr.getmaxyx()
+    instance.max_columns = s_columns
     if instance.k == ord('y'):
         stdscr.clear()
 
@@ -442,9 +446,9 @@ def update_screen(stdscr, instance):
     stdscr.addstr(lines-1, xoffset + 50 + 2, '[T:' , curses.color_pair(2))
     stdscr.addstr(lines-1, xoffset + 50 + 2+3, 'ACCOUNT' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_account else 0))
     stdscr.addstr(lines-1, xoffset + 50 + 2+3+7, ']' , curses.color_pair(2))
-    instance.add_button(lines-1,xoffset+50+2,'[T:ACCOUNT]', ord('t')) 
+    instance.add_button(lines-1,xoffset+50+2,'[T:ACCOUNT]', ord('t'))
 
-    stdscr.addstr(lines-1, xoffset + 62 + 2, f'(Avg time prod:{instance.prod_wait_time} stud:{instance.stud_wait_time})' , curses.color_pair(2))
+    stdscr.addstr(lines-1, xoffset + 62 + 2, f'(Avg prod {instance.prod_wait_time} stud {instance.stud_wait_time})' , curses.color_pair(2))
 
     signature = instance.signature
     stdscr.addstr(lines-1,columns-2-len(signature), signature)

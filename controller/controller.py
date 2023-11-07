@@ -54,7 +54,8 @@ version_number = 1.00
 
 def get_avg_wait_time(instance: Singleton):
     try:
-        times = os.popen('python compute_wait_time.py').readlines()[1:3]
+        fname = 'compute_wait_time.py' if os.path.basename(os.path.normpath(args.basepath)) == 'new_nodeocc' else '../compute_wait_time.py'
+        times = os.popen(f'python {fname}').readlines()[1:3]
         prod_time = times[0].split('Average on prod is ')[1].replace(' hrs','h').replace(' mins','m').replace(' and ','').strip()
         stud_time = times[1].split('Average on students-prod is ')[1].replace(' hrs','h').replace(' mins','m').replace(' and ','').strip()
         return prod_time, stud_time

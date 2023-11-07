@@ -1,5 +1,5 @@
 import asyncio
-import os
+import os, grp
 from pathlib import Path
 import time
 import curses
@@ -78,6 +78,10 @@ class Singleton:
         self.stud_wait_time = 'err'
         self.a_filter = 0
         self.k = -1
+
+        # check if user group is 'student' or 'tesisti'
+        user_group = grp.getgrgid(os.getgid()).gr_name
+        self.cur_partition = 'stud' if user_group in ['studenti', 'tesisti'] else 'prod'
 
         self.basepath = self.args.basepath
 
@@ -448,7 +452,8 @@ def update_screen(stdscr, instance):
     stdscr.addstr(lines-1, xoffset + 50 + 2+3+7, ']' , curses.color_pair(2))
     instance.add_button(lines-1,xoffset+50+2,'[T:ACCOUNT]', ord('t'))
 
-    stdscr.addstr(lines-1, xoffset + 62 + 2, f'(Avg prod {instance.prod_wait_time} stud {instance.stud_wait_time})' , curses.color_pair(2))
+    # get slurm user partition
+    stdscr.addstr(lines-1, xoffset + 62 + 2, f'(Avg time {instance.prod_wait_time if instance.cur_partition == "prod" else instance.stud_wait_time})', curses.color_pair(2))
 
     signature = instance.signature
     stdscr.addstr(lines-1,columns-2-len(signature), signature)

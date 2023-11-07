@@ -2,12 +2,14 @@ import sys
 import os
 from pathlib import Path
 
+
 conf_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 print(conf_path)
 sys.path.append(conf_path)
 from curses import wrapper
 from view.curses_multiwindow import main, Singleton, try_open_socket_as_slave
 
+from readers.compute_wait_time import get_wait_time
 from importlib import reload
 import readers.slurmreader
 import view.slurm_list
@@ -54,12 +56,11 @@ version_number = 1.00
 
 def get_avg_wait_time(instance: Singleton):
     try:
-        basepath = os.getcwd() if os.path.basename(os.getcwd()) == 'new_nodeocc' or 'compute_wait_time.py' in os.listdir() else '/'.join(os.getcwd().split('/')[:-1])
-        fname = os.path.join(basepath, 'compute_wait_time.py')
-        times = os.popen(f'python {fname}').readlines()[1:3]
-        prod_time = times[0].split('Average on prod is ')[1].replace(' hrs','h').replace(' mins','m').replace(' and ','').strip()
-        stud_time = times[1].split('Average on students-prod is ')[1].replace(' hrs','h').replace(' mins','m').replace(' and ','').strip()
-        return prod_time, stud_time
+        avg_wait_time = get_wait_time('prod' if instance.cur_partition == 'prod' else 'students-prod')
+        h = avg_wait_time // 3600
+        m = (avg_wait_time % 3600) // 60
+        time_str = f"{int(h)}h{int(m)}m"
+        return time_str
     except Exception as e:
         instance.err(f"Could not get wait times")
         instance.err(traceback.format_exc())
@@ -121,7 +122,7 @@ async def get_data_slave(instance):
             msg = json.loads(data)
             inf = Infrastructure.from_dict(msg['inf'])
             jobs = [Job.from_dict(j) for j in msg['jobs']]
-            prod_wait_time, stud_wait_time = get_avg_wait_time(instance)
+            avg_wait_time = get_avg_wait_time(instance)
             instance.timeme(f"- receive")
         else:
             instance.timeme(f"- no data")
@@ -134,7 +135,7 @@ async def get_data_slave(instance):
         instance.log(f"TIMEOUT")
         try_open_socket_as_slave(instance)
 
-    return inf, jobs, prod_wait_time, stud_wait_time
+    return inf, jobs, avg_wait_time
 
 async def get_all():
     global last_update
@@ -156,7 +157,7 @@ async def get_all():
 
     instance.timeme(f"- reload")
 
-    inf, jobs, prod_wait_time, stud_wait_time = None, None, None, None
+    inf, jobs, avg_wait_time = None, None, None
     try:
         if args.master:
             inf, jobs = update_data_master(instance)
@@ -165,14 +166,14 @@ async def get_all():
             instance.timeme(f"- listening for data")
 
             # wait for data from master but async update the view
-            inf, jobs, prod_wait_time, stud_wait_time = await get_data_slave(instance)
+            inf, jobs, avg_wait_time = await get_data_slave(instance)
     except Exception as e:
         instance.err(f"Exception: {e}")
         instance.err(traceback.format_exc())
         # instance.rens = 'Something went wrong'
         # instance.nocc = ':('
 
-    return inf, jobs, prod_wait_time, stud_wait_time
+    return inf, jobs, avg_wait_time
 
 def display_main(stdscr):
     return asyncio.run(main(stdscr))

@@ -72,8 +72,7 @@ class Singleton:
 
         self.inf = None
         self.jobs = []
-        self.prod_wait_time = 'err'
-        self.stud_wait_time = 'err'
+        self.avg_wait_time = 'err'
         self.a_filter = 0
         self.k = -1
 
@@ -201,11 +200,10 @@ class Singleton:
         _ctime = time.time()
 
         if self.fetch_fn is not None:
-            inf, jobs, prod_wait_time, stud_wait_time = await self.fetch_fn()#a_filter_values[self.a_filter])
+            inf, jobs, avg_wait_time = await self.fetch_fn()#a_filter_values[self.a_filter])
             self.inf = inf if inf is not None else self.inf
             self.jobs = jobs if jobs is not None else self.jobs
-            self.prod_wait_time = prod_wait_time if prod_wait_time is not None else self.prod_wait_time
-            self.stud_wait_time = stud_wait_time if stud_wait_time is not None else self.stud_wait_time
+            self.avg_wait_time = avg_wait_time if avg_wait_time is not None else self.avg_wait_time
 
         _delta_t = time.time() - _ctime
         self.log(f"Fetch took {_delta_t:.2f} seconds")
@@ -449,7 +447,7 @@ def update_screen(stdscr, instance):
     instance.add_button(lines-1,xoffset+50+2,'[T:ACCOUNT]', ord('t')) 
 
     # get slurm user partition
-    stdscr.addstr(lines-1, xoffset + 62 + 2, f'(Avg time {instance.prod_wait_time if instance.cur_partition == "prod" else instance.stud_wait_time})', curses.color_pair(2))
+    stdscr.addstr(lines-1, xoffset + 62 + 2, f'(Avg time {instance.avg_wait_time})', curses.color_pair(2))
 
     signature = instance.signature
     stdscr.addstr(lines-1,columns-2-len(signature), signature)

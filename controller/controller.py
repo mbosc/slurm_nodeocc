@@ -27,7 +27,7 @@ import asyncio
 BEGIN_DELIM = "!{$"
 END_DELIM_ENCODED = "!}$".encode('utf-8')
 MAX_BUF = 65535
-MAX_MSG_LEN = 8*1024*1024
+MAX_MSG_LEN = 1024*1024*1024
 
 parser = argparse.ArgumentParser(description='Visualize slurm jobs')
 parser.add_argument('--debug', action='store_true', help='Enable logging')
@@ -81,7 +81,12 @@ def update_data_master(instance):
     instance.timeme(f"- jobs list read")
 
     # send data to clients (if any)
-    msg = json.dumps({'inf': inf.to_nested_dict(), 'jobs': [j.to_nested_dict() for j in jobs]})
+    running_jobs = [j.to_nested_dict() for j in jobs if j.state == 'CG' or j.state == 'R']
+    queue_jobs = [j.to_nested_dict() for j in jobs if j.state != 'R' and j.state != 'CG']
+    queue_jobs = sorted(queue_jobs, key=lambda x: x['priority'], reverse=True)
+    maxlen = min(120, len(running_jobs) + len(queue_jobs))
+
+    msg = json.dumps({'inf': inf.to_nested_dict(), 'jobs': running_jobs + queue_jobs[:maxlen]})
 
     # msg to bytes
     msg = msg.encode('utf-8')

@@ -1,5 +1,6 @@
 import asyncio
-import os, grp
+import os
+import grp
 from pathlib import Path
 import time
 import curses
@@ -12,6 +13,7 @@ import threading
 import signal
 
 a_filter_values = [None, 'me', 'prod', 'stud', 'cvcs']
+
 
 def try_open_socket_as_slave(instance):
     if not instance.port_file_exists():
@@ -33,12 +35,13 @@ def try_open_socket_as_slave(instance):
 
 class Singleton:
     __instance = None
+
     @staticmethod
     def getInstance(args=None):
         """ Static access method. """
-        if Singleton.__instance == None:
+        if Singleton.__instance is None:
             Singleton(args)
-        if args != None:
+        if args is not None:
             Singleton.__instance.args = args
         return Singleton.__instance
 
@@ -50,7 +53,7 @@ class Singleton:
 
     def __init__(self, args=None):
         """ Virtually private constructor. """
-        if Singleton.__instance != None:
+        if Singleton.__instance is not None:
             raise Exception("This class is a singleton!")
         else:
             Singleton.__instance = self
@@ -85,13 +88,13 @@ class Singleton:
         self.basepath = self.args.basepath
 
         if self.args.daemon_only:
-            handler = RotatingFileHandler(os.path.join(self.basepath,'.master_log.txt'), maxBytes=5*1024*1024, backupCount=2, mode='w')
+            handler = RotatingFileHandler(os.path.join(self.basepath, '.master_log_n.txt'), maxBytes=5 * 1024 * 1024, backupCount=2, mode='w')
             logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S',
                                 handlers=[handler])
         # set logging file
         elif self.args.debug:
             # create rotating file handler
-            handler = RotatingFileHandler(os.path.expanduser('~') + '/.nodeocc_ii/log.txt', maxBytes=5*1024*1024, backupCount=2, mode='w')
+            handler = RotatingFileHandler(os.path.expanduser('~') + '/.nodeocc_log.txt', maxBytes=5 * 1024 * 1024, backupCount=2, mode='w')
             logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S',
                                 handlers=[handler])
 
@@ -121,7 +124,7 @@ class Singleton:
     def get_port_file_name(self):
         if self.port_file_exists():
             fname = [f for f in os.listdir(self.basepath) if f.endswith('.port')][0]
-            return fname, os.path.join(self.basepath,fname)
+            return fname, os.path.join(self.basepath, fname)
         return None
 
     def check_port_file_master(self):
@@ -153,7 +156,7 @@ class Singleton:
         self.pid = os.getpid()
 
         # create file to store port
-        Path(self.basepath,f'{self.port}.port').write_text(str(self.pid))
+        Path(self.basepath, f'{self.port}.port').write_text(str(self.pid))
 
         return self.port
 
@@ -164,7 +167,7 @@ class Singleton:
 
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-            #sock listen on port
+            # sock listen on port
             self.sock.bind(('', port))
 
             self.sock.setblocking(True)
@@ -202,7 +205,8 @@ class Singleton:
         _ctime = time.time()
 
         if self.fetch_fn is not None:
-            inf, jobs, avg_wait_time = await self.fetch_fn()#a_filter_values[self.a_filter])
+            inf, jobs, prod_wait_time, stud_wait_time = await self.fetch_fn()  # a_filter_values[self.a_filter])
+            inf, jobs, avg_wait_time = await self.fetch_fn()  # a_filter_values[self.a_filter])
             self.inf = inf if inf is not None else self.inf
             self.jobs = jobs if jobs is not None else self.jobs
             self.avg_wait_time = avg_wait_time if avg_wait_time is not None else self.avg_wait_time
@@ -211,12 +215,12 @@ class Singleton:
         self.log(f"Fetch took {_delta_t:.2f} seconds")
 
     def add_button(self, y, x, width, action):
-            if y not in self.mouse_state:
-                self.mouse_state[y] = {}
-            if type(width) == str:
-                width = len(width)
-            for j in range(x, x+width):
-                self.mouse_state[y][j] = action
+        if y not in self.mouse_state:
+            self.mouse_state[y] = {}
+        if isinstance(width, str):
+            width = len(width)
+        for j in range(x, x + width):
+            self.mouse_state[y][j] = action
 
 
 class Buffer(object):
@@ -236,10 +240,10 @@ class Buffer(object):
     def writeln(self, text):
         self.write(text + "\n")
 
-    def input(self, text = ""):
+    def input(self, text=""):
         return self._input(text, lambda: self.window.getstr().decode('utf-8'))
 
-    def input_chr(self, text = ""):
+    def input_chr(self, text=""):
         return self._input(text, lambda: chr(self.window.getch()))
 
     def _input(self, text, get_input):
@@ -248,17 +252,17 @@ class Buffer(object):
         self.writeln(input)
         return input
 
-    def refresh(self,voff=0,usevoff=False):
+    def refresh(self, voff=0, usevoff=False):
         instance = Singleton.getInstance()
         self.window.erase()
-        off = max(0,((self.lines-2) - len(self.buffer)) // 2)
+        off = max(0, ((self.lines - 2) - len(self.buffer)) // 2)
         if usevoff and voff < 0:
             instance.voff = 0
         elif usevoff and voff > len(self.buffer) - self.lines + 2:
             instance.voff = len(self.buffer) - self.lines + 2
 
         voff = max(min(voff, len(self.buffer) - self.lines + 2), 0)
-        for nr, line in enumerate(self.buffer[voff:voff+self.lines-2]):#self.buffer[-self.lines+2:]):
+        for nr, line in enumerate(self.buffer[voff:voff + self.lines - 2]):  # self.buffer[-self.lines+2:]):
             lastcol = 2
             xacc = 1
 
@@ -266,7 +270,7 @@ class Buffer(object):
                 if ':*>' in chunk:
 
                     color = int(chunk[0:chunk.index('~')])
-                    chunk_segments = chunk[chunk.index('~')+1:].split(':*>')
+                    chunk_segments = chunk[chunk.index('~') + 1:].split(':*>')
                     try:
                         self.window.addstr(nr + off + 1, xacc, chunk_segments[0], curses.color_pair(color) | (curses.A_REVERSE if color > 9 else 0))
                     except curses.error:
@@ -284,12 +288,13 @@ class Buffer(object):
                         pass
                     xacc += len(chunk)
         if len(self.buffer) > self.lines - 2:
-            self.screen.addstr(self.lines-2, instance.xoffset + instance.left_width // 2 - 6, ' ▼ SCROLL ▲ ' , curses.color_pair(2) | curses.A_REVERSE)
-            instance.add_button(self.lines-2, instance.xoffset + 31, 'D', ord('s'))
-            instance.add_button(self.lines-2, instance.xoffset + 40, 'U', ord('w'))
+            self.screen.addstr(self.lines - 2, instance.xoffset + instance.left_width // 2 - 6, ' ▼ SCROLL ▲ ', curses.color_pair(2) | curses.A_REVERSE)
+            instance.add_button(self.lines - 2, instance.xoffset + 31, 'D', ord('s'))
+            instance.add_button(self.lines - 2, instance.xoffset + 40, 'U', ord('w'))
 
         self.window.border()
         self.window.noutrefresh()
+
 
 def process_mouse():
     try:
@@ -300,8 +305,9 @@ def process_mouse():
             if y in ms and x in ms[y]:
                 return True, ms[y][x]
         return False, -1
-    except:
+    except BaseException:
         return False, -1
+
 
 def handle_keys(stdscr, instance):
     k = stdscr.getch()
@@ -329,9 +335,9 @@ def handle_keys(stdscr, instance):
         instance.voff = 0
     # LEFT
     elif k == ord('a') or k == 260:
-        instance.a_filter = (instance.a_filter + (len(a_filter_values)-1)) % len(a_filter_values)
+        instance.a_filter = (instance.a_filter + (len(a_filter_values) - 1)) % len(a_filter_values)
         instance.voff = 0
-    elif valid_mouse and type(k) == str and k.startswith('AF_'):
+    elif valid_mouse and isinstance(k, str) and k.startswith('AF_'):
         instance.a_filter = int(k.split('AF_')[1])
     # DOWN
     elif k == ord('s') or k == 258:
@@ -354,6 +360,7 @@ def handle_keys(stdscr, instance):
     if k == ord('p'):
         instance.show_prio = not instance.show_prio
 
+
 def update_screen(stdscr, instance):
     update_views(stdscr, instance, a_filter_values[instance.a_filter])
     xoffset = 0
@@ -370,7 +377,7 @@ def update_screen(stdscr, instance):
         totsize += 10
     if instance.show_prio:
         totsize += 8
-    totsize += 10 # from /etc/update-motd.d/02-wait-times
+    totsize += 10  # from /etc/update-motd.d/02-wait-times
 
     if columns < totsize:
         stdscr.addstr(1, 1, "MINIMUM TERM. WIDTH")
@@ -388,13 +395,12 @@ def update_screen(stdscr, instance):
 
     stdscr.refresh()
 
-    left_width = columns - 33 #72
+    left_width = columns - 33  # 72
     instance.left_width = left_width
-    left_window = curses.newwin(lines-1, left_width, 0, xoffset)
+    left_window = curses.newwin(lines - 1, left_width, 0, xoffset)
     left_buffer = Buffer(left_window, lines, stdscr)
-    right_window = curses.newwin(lines-1,31, 0, xoffset + left_width + 1)
+    right_window = curses.newwin(lines - 1, 31, 0, xoffset + left_width + 1)
     right_buffer = Buffer(right_window, lines, stdscr)
-
 
     left_buffer.write(instance.rens)
     right_buffer.write(instance.nocc)
@@ -402,62 +408,63 @@ def update_screen(stdscr, instance):
     left_buffer.refresh(instance.voff, True)
 
     # render menu
-    stdscr.addstr(lines-1,xoffset + 1 + 0, '◀')
-    instance.add_button(lines-1,xoffset + 1 + 0, '◀', ord('a'))
-    stdscr.addstr(lines-1,xoffset + 1 + 2, 'ALL', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == None else 0))
+    stdscr.addstr(lines - 1, xoffset + 1 + 0, '◀')
+    instance.add_button(lines - 1, xoffset + 1 + 0, '◀', ord('a'))
+    stdscr.addstr(lines - 1, xoffset + 1 + 2, 'ALL', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] is None else 0))
 
-    instance.add_button(lines-1,xoffset + 1 + 2, 'ALL', 'AF_0')
+    instance.add_button(lines - 1, xoffset + 1 + 2, 'ALL', 'AF_0')
 
-    stdscr.addstr(lines-1,xoffset + 1 + 6, 'ME', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'me' else 0))
-    instance.add_button(lines-1,xoffset + 1 + 6, 'ME', 'AF_1')
-    stdscr.addstr(lines-1,xoffset + 1 + 9, 'PROD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'prod' else 0))
-    instance.add_button(lines-1,xoffset + 1 + 9, 'PROD', 'AF_2')
-    stdscr.addstr(lines-1,xoffset + 1 + 14,'STUD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'stud' else 0))
-    instance.add_button(lines-1,xoffset + 1 + 14,'STUD', 'AF_3')
-    stdscr.addstr(lines-1,xoffset + 1 + 19,'CVCS', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'cvcs' else 0))
-    instance.add_button(lines-1,xoffset + 1 + 19,'CVCS', 'AF_4')
+    stdscr.addstr(lines - 1, xoffset + 1 + 6, 'ME', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'me' else 0))
+    instance.add_button(lines - 1, xoffset + 1 + 6, 'ME', 'AF_1')
+    stdscr.addstr(lines - 1, xoffset + 1 + 9, 'PROD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'prod' else 0))
+    instance.add_button(lines - 1, xoffset + 1 + 9, 'PROD', 'AF_2')
+    stdscr.addstr(lines - 1, xoffset + 1 + 14, 'STUD', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'stud' else 0))
+    instance.add_button(lines - 1, xoffset + 1 + 14, 'STUD', 'AF_3')
+    stdscr.addstr(lines - 1, xoffset + 1 + 19, 'CVCS', curses.color_pair(2) | (curses.A_REVERSE if a_filter_values[instance.a_filter] == 'cvcs' else 0))
+    instance.add_button(lines - 1, xoffset + 1 + 19, 'CVCS', 'AF_4')
 
-    stdscr.addstr(lines-1,xoffset + 1 + 24, '▶')
-    instance.add_button(lines-1,xoffset + 1 + 24, '▶', ord('d'))
-    stdscr.addstr(lines-1,xoffset + 1 + 25, ' ' * (columns - 27 - xoffset))
+    stdscr.addstr(lines - 1, xoffset + 1 + 24, '▶')
+    instance.add_button(lines - 1, xoffset + 1 + 24, '▶', ord('d'))
+    stdscr.addstr(lines - 1, xoffset + 1 + 25, ' ' * (columns - 27 - xoffset))
 
-    stdscr.addstr(lines-1,left_width - 8,'[Q:QUIT]', curses.color_pair(2))
-    instance.add_button(lines-1,left_width - 8,'[Q:QUIT]', ord('q')) #53
+    stdscr.addstr(lines - 1, left_width - 8, '[Q:QUIT]', curses.color_pair(2))
+    instance.add_button(lines - 1, left_width - 8, '[Q:QUIT]', ord('q'))  # 53
 
-    stdscr.addstr(lines-1,left_width - 18 + 19,'[Y:REDRAW]', curses.color_pair(2))
-    instance.add_button(lines-1,left_width - 18 + 19,'[Y:REDRAW]', ord('y'))
+    stdscr.addstr(lines - 1, left_width - 18 + 19, '[Y:REDRAW]', curses.color_pair(2))
+    instance.add_button(lines - 1, left_width - 18 + 19, '[Y:REDRAW]', ord('y'))
 
-    stdscr.addstr(0, columns - 15, '[G:' , curses.color_pair(2))
-    stdscr.addstr(0, columns - 12, 'GPU' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'gpu' else 0))
-    stdscr.addstr(0, columns - 12 + 3, 'RAM' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'ram' else 0))
-    stdscr.addstr(0, columns - 12 + 6, 'CPU' , curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'cpu' else 0))
-    stdscr.addstr(0, columns - 12 + 9, ']' , curses.color_pair(2))
-    instance.add_button(0,columns - 15,'[G:GPURAMCPU]', ord('g'))
+    stdscr.addstr(0, columns - 15, '[G:', curses.color_pair(2))
+    stdscr.addstr(0, columns - 12, 'GPU', curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'gpu' else 0))
+    stdscr.addstr(0, columns - 12 + 3, 'RAM', curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'ram' else 0))
+    stdscr.addstr(0, columns - 12 + 6, 'CPU', curses.color_pair(2) | (curses.A_REVERSE if instance.view_mode == 'cpu' else 0))
+    stdscr.addstr(0, columns - 12 + 9, ']', curses.color_pair(2))
+    instance.add_button(0, columns - 15, '[G:GPURAMCPU]', ord('g'))
 
-    stdscr.addstr(lines-1, xoffset + 25 + 2, '[J:' , curses.color_pair(2))
-    stdscr.addstr(lines-1, xoffset + 25 + 2+3, 'AGG' , curses.color_pair(2) | (curses.A_REVERSE if instance.job_id_type == 'agg' else 0))
-    stdscr.addstr(lines-1, xoffset + 25 + 2+3+3, 'TRUE' , curses.color_pair(2) | (curses.A_REVERSE if instance.job_id_type == 'true' else 0))
-    stdscr.addstr(lines-1, xoffset + 25 + 2+3+3+4, ']' , curses.color_pair(2))
-    instance.add_button(lines-1,xoffset+25+2,'[J:AGGTRUE]', ord('j'))
+    stdscr.addstr(lines - 1, xoffset + 25 + 2, '[J:', curses.color_pair(2))
+    stdscr.addstr(lines - 1, xoffset + 25 + 2 + 3, 'AGG', curses.color_pair(2) | (curses.A_REVERSE if instance.job_id_type == 'agg' else 0))
+    stdscr.addstr(lines - 1, xoffset + 25 + 2 + 3 + 3, 'TRUE', curses.color_pair(2) | (curses.A_REVERSE if instance.job_id_type == 'true' else 0))
+    stdscr.addstr(lines - 1, xoffset + 25 + 2 + 3 + 3 + 4, ']', curses.color_pair(2))
+    instance.add_button(lines - 1, xoffset + 25 + 2, '[J:AGGTRUE]', ord('j'))
 
-    stdscr.addstr(lines-1, xoffset + 37 + 2, '[P:' , curses.color_pair(2))
-    stdscr.addstr(lines-1, xoffset + 37 + 2+3, 'PRIORITY' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_prio else 0))
-    stdscr.addstr(lines-1, xoffset + 37 + 2+3+8, ']' , curses.color_pair(2))
-    instance.add_button(lines-1,xoffset+37+2,'[P:PRIORITY]', ord('p'))
+    stdscr.addstr(lines - 1, xoffset + 37 + 2, '[P:', curses.color_pair(2))
+    stdscr.addstr(lines - 1, xoffset + 37 + 2 + 3, 'PRIORITY', curses.color_pair(2) | (curses.A_REVERSE if instance.show_prio else 0))
+    stdscr.addstr(lines - 1, xoffset + 37 + 2 + 3 + 8, ']', curses.color_pair(2))
+    instance.add_button(lines - 1, xoffset + 37 + 2, '[P:PRIORITY]', ord('p'))
 
-    stdscr.addstr(lines-1, xoffset + 50 + 2, '[T:' , curses.color_pair(2))
-    stdscr.addstr(lines-1, xoffset + 50 + 2+3, 'ACCOUNT' , curses.color_pair(2) | (curses.A_REVERSE if instance.show_account else 0))
-    stdscr.addstr(lines-1, xoffset + 50 + 2+3+7, ']' , curses.color_pair(2))
-    instance.add_button(lines-1,xoffset+50+2,'[T:ACCOUNT]', ord('t'))
+    stdscr.addstr(lines - 1, xoffset + 50 + 2, '[T:', curses.color_pair(2))
+    stdscr.addstr(lines - 1, xoffset + 50 + 2 + 3, 'ACCOUNT', curses.color_pair(2) | (curses.A_REVERSE if instance.show_account else 0))
+    stdscr.addstr(lines - 1, xoffset + 50 + 2 + 3 + 7, ']', curses.color_pair(2))
+    instance.add_button(lines - 1, xoffset + 50 + 2, '[T:ACCOUNT]', ord('t'))
 
     # get slurm user partition
-    stdscr.addstr(lines-1, xoffset + 62 + 2, f'(Avg time {instance.avg_wait_time})', curses.color_pair(2))
+    stdscr.addstr(lines - 1, xoffset + 62 + 2, f'(Avg time {instance.prod_wait_time if instance.cur_partition == "prod" else instance.stud_wait_time})', curses.color_pair(2))
 
     signature = instance.signature
-    stdscr.addstr(lines-1,columns-2-len(signature), signature)
+    stdscr.addstr(lines - 1, columns - 2 - len(signature), signature)
 
     stdscr.refresh()
     curses.doupdate()
+
 
 def get_char_async(stdscr, instance):
     while instance.k != ord('q') and instance.k != 'q':
@@ -466,6 +473,7 @@ def get_char_async(stdscr, instance):
 
     # raise SIGINT to cancel update task
     os.kill(os.getpid(), signal.SIGINT)
+
 
 async def update_screen_info(stdscr, instance):
     while instance.k != ord('q') and instance.k != 'q':
@@ -479,7 +487,7 @@ async def wait_first(futures, instance):
     futures. '''
     try:
         done, pending = await asyncio.wait(futures,
-            return_when=asyncio.FIRST_COMPLETED)
+                                           return_when=asyncio.FIRST_COMPLETED)
 
         # cancel the other tasks, we have a result. We need to wait for the cancellations
         # to propagate.
@@ -553,7 +561,7 @@ async def main(stdscr):
     await instance.fetch()
 
     update_screen(stdscr, instance)
-    update_screen(stdscr, instance) # need 2 for some reason...
+    update_screen(stdscr, instance)  # need 2 for some reason...
 
     update_task = None
 

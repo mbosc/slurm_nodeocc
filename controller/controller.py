@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 
 
+import numpy as np
+
 conf_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 print(conf_path)
 sys.path.append(conf_path)
@@ -27,7 +29,7 @@ import asyncio
 BEGIN_DELIM = "!{$"
 END_DELIM_ENCODED = "!}$".encode('utf-8')
 MAX_BUF = 65535
-MAX_MSG_LEN = 1024*1024*1024
+MAX_MSG_LEN = 1024 * 1024 * 1024
 
 parser = argparse.ArgumentParser(description='Visualize slurm jobs')
 parser.add_argument('--debug', action='store_true', help='Enable logging')
@@ -52,7 +54,45 @@ if os.path.getmtime(conf_path + "/readers/slurmreader.py") > last_update:
     last_update = os.path.getmtime(conf_path + "/readers/slurmreader.py")
 
 program_name = "nellì_docc"
-version_number = 1.00
+version_number = 1.69
+
+
+def w_time():
+
+    def get_sec(time_str):
+        days_chks = time_str.split('-')
+        if len(days_chks) > 1:
+            days = days_chks[0]
+            time_str = days_chks[1]
+        else:
+            days = 0
+        h, m, s = time_str.split(':')
+        return int(days) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
+
+    def pprint_sec(sec):
+        if sec < 0:
+            return '-1 hrs and -1 mins'
+        h = sec // 3600
+        m = (sec % 3600)
+        m, s = m // 60, m % 60
+        return '%d hrs and %02d mins' % (h, m)
+
+    results = []
+    for partition in ['prod', 'students-prod']:
+        cmd = 'sacct --noheader -X -a --partition=%s --start=now-1weeks --format="Reserved"' % partition
+        output = os.popen(cmd).readlines()
+        wait_times = []
+
+        for line in output:
+            if ':' not in line:
+                continue
+            wait_times.append(get_sec(line.strip()))
+
+        wait_times = np.asarray(wait_times)
+        avg_wait_time = np.mean(wait_times) if len(wait_times) > 0 else -1
+        results.append("  Average on %s is %s" % (partition, pprint_sec(avg_wait_time)))
+    return results
+
 
 def get_avg_wait_time(instance: Singleton):
     try:
@@ -91,16 +131,17 @@ def update_data_master(instance):
     # msg to bytes
     msg = msg.encode('utf-8')
     msg_len = len(msg)
-    msg = (str(msg_len)+BEGIN_DELIM).encode('utf-8') + msg + END_DELIM_ENCODED
+    msg = (str(msg_len) + BEGIN_DELIM).encode('utf-8') + msg + END_DELIM_ENCODED
     instance.timeme(f"- msg encoded with len {msg_len}")
 
-    instance.sock.sendto(msg ,('<broadcast>', instance.port))
+    instance.sock.sendto(msg, ('<broadcast>', instance.port))
     instance.timeme(f"- broadcast")
 
     return inf, jobs
 
+
 async def get_data_slave(instance):
-    inf, jobs= None, None
+    inf, jobs = None, None
     try:
         # listen for data from master
         # instance.sock.settimeout(6.5)
@@ -142,6 +183,7 @@ async def get_data_slave(instance):
 
     return inf, jobs, avg_wait_time
 
+
 async def get_all():
     global last_update
     # watch for reload
@@ -180,6 +222,7 @@ async def get_all():
 
     return inf, jobs, avg_wait_time
 
+
 def display_main(stdscr):
     return asyncio.run(main(stdscr))
 
@@ -192,6 +235,7 @@ if __name__ == '__main__':
         instance.log(f"Starting master daemon")
         # register atexit
         import atexit
+
         def exit_handler():
             instance.log(f"Exiting...")
             instance.sock.close()

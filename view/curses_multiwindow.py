@@ -205,7 +205,6 @@ class Singleton:
         _ctime = time.time()
 
         if self.fetch_fn is not None:
-            inf, jobs, prod_wait_time, stud_wait_time = await self.fetch_fn()  # a_filter_values[self.a_filter])
             inf, jobs, avg_wait_time = await self.fetch_fn()  # a_filter_values[self.a_filter])
             self.inf = inf if inf is not None else self.inf
             self.jobs = jobs if jobs is not None else self.jobs

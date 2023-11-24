@@ -456,7 +456,7 @@ def update_screen(stdscr, instance):
     instance.add_button(lines - 1, xoffset + 50 + 2, '[T:ACCOUNT]', ord('t'))
 
     # get slurm user partition
-    stdscr.addstr(lines - 1, xoffset + 62 + 2, f'(Avg time {instance.prod_wait_time if instance.cur_partition == "prod" else instance.stud_wait_time})', curses.color_pair(2))
+    stdscr.addstr(lines - 1, xoffset + 62 + 2, f'(Avg time {instance.avg_wait_time})', curses.color_pair(2))
 
     signature = instance.signature
     stdscr.addstr(lines - 1, columns - 2 - len(signature), signature)

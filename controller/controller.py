@@ -53,49 +53,13 @@ if os.path.getmtime(conf_path + "/view/styles.py") > last_update:
 if os.path.getmtime(conf_path + "/readers/slurmreader.py") > last_update:
     last_update = os.path.getmtime(conf_path + "/readers/slurmreader.py")
 
-program_name = "nellì_docc"
-version_number = 1.69
-
-
-def w_time():
-
-    def get_sec(time_str):
-        days_chks = time_str.split('-')
-        if len(days_chks) > 1:
-            days = days_chks[0]
-            time_str = days_chks[1]
-        else:
-            days = 0
-        h, m, s = time_str.split(':')
-        return int(days) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
-
-    def pprint_sec(sec):
-        if sec < 0:
-            return '-1 hrs and -1 mins'
-        h = sec // 3600
-        m = (sec % 3600)
-        m, s = m // 60, m % 60
-        return '%d hrs and %02d mins' % (h, m)
-
-    results = []
-    for partition in ['prod', 'students-prod']:
-        cmd = 'sacct --noheader -X -a --partition=%s --start=now-1weeks --format="Reserved"' % partition
-        output = os.popen(cmd).readlines()
-        wait_times = []
-
-        for line in output:
-            if ':' not in line:
-                continue
-            wait_times.append(get_sec(line.strip()))
-
-        wait_times = np.asarray(wait_times)
-        avg_wait_time = np.mean(wait_times) if len(wait_times) > 0 else -1
-        results.append("  Average on %s is %s" % (partition, pprint_sec(avg_wait_time)))
-    return results
+program_name = "nodocc"
+version_number = 1.00
 
 
 def get_avg_wait_time(instance: Singleton):
     try:
+        raise Exception("Not implemented")
         avg_wait_time = get_wait_time('prod' if instance.cur_partition == 'prod' else 'students-prod')
         h = avg_wait_time // 3600
         m = (avg_wait_time % 3600) // 60
@@ -168,7 +132,7 @@ async def get_data_slave(instance):
             msg = json.loads(data)
             inf = Infrastructure.from_dict(msg['inf'])
             jobs = [Job.from_dict(j) for j in msg['jobs']]
-            avg_wait_time = "Future" # get_avg_wait_time(instance)
+            avg_wait_time = "N/A"  # get_avg_wait_time(instance)
             instance.timeme(f"- receive")
         else:
             instance.timeme(f"- no data")

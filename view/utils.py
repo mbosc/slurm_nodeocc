@@ -3,11 +3,19 @@ import re
 
 
 def is_student_viz(user):
-    return 'students' in user.partition and re.search(r'cvcs|ai4a2023', user.account.lower()) is None
+    return user.user_group in ('studenti', 'tesisti') and not is_cvcs_viz(user)
 
 
 def is_cvcs_viz(user):
     return re.search(r'cvcs|ai4a2023', user.account.lower()) is not None
+
+
+def is_dev(job):
+    return job.partition == 'all_serial'
+
+
+def is_prod(job):
+    return job.partition == 'all_usr_prod'
 
 
 def to_datetime(time_str):

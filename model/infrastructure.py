@@ -1,14 +1,14 @@
 from typing import List
 
 
-class Node(object):
+class Node:
     """
     A simple class modelling a node within
     the SLURM infrastructure
     """
 
     def __init__(self, name, n_gpus, gpu_model, reserved, status, cpus, mem) -> None:
-        self.name = name
+        self.name = name.replace('ailb-login-02', '00') if name is not None else None
         self.n_gpus = n_gpus
         self.gpu_model = gpu_model
         self.reserved = reserved
@@ -21,7 +21,7 @@ class Node(object):
         return f'NODE {self.name} - {self.n_gpus}x{self.gpu_model} [{self.cpus}/{self.mem/1000}] - {self.status} ({self.reserved} reserv)'
 
 
-class Maintenance(object):
+class Maintenance:
     """
     A simple class modelling a pending
     SLURM maintenance
@@ -48,7 +48,7 @@ class Maintenance(object):
         }
 
 
-class Infrastructure(object):
+class Infrastructure:
     def __init__(self, maintenances: List[Maintenance], nodes, gpu_lims, ram_lims, cpu_lims) -> None:
         self.maintenances = maintenances
         self.nodes = nodes

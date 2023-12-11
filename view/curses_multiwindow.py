@@ -346,14 +346,16 @@ def handle_keys(stdscr, instance):
         instance.voff -= 1
 
     if k == ord('S'):
-        instance.sort_by_prio = not instance.sort_by_prio
+        # instance.sort_by_prio = not instance.sort_by_prio
+        pass
     if k == ord('g'):
         # instance.view_mode = "gpu" if instance.view_mode == "ram" else "ram"
         instance.view_mode = {"gpu": "ram", "ram": "cpu", "cpu": "gpu"}[instance.view_mode]
     if k == ord('j'):
         instance.job_id_type = "true" if instance.job_id_type == "agg" else "agg"
     if k == ord('z'):
-        instance.show_starttime = not instance.show_starttime
+        # instance.show_starttime = not instance.show_starttime
+        pass
     if k == ord('t'):
         instance.show_account = not instance.show_account
     if k == ord('p'):

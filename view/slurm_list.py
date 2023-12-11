@@ -1,19 +1,21 @@
 from datetime import datetime
 
 from view.styles import _format_to, cmdstyle
-from view.utils import is_cvcs_viz, is_student_viz
+from view.utils import is_cvcs_viz, is_student_viz, is_dev, is_prod
 
 midlane = "─────────── ▲ DEV ──────────────────────────────── ▼ PROD ────────────"
 
+
 def format_date(str_date):
-    return datetime.strftime(datetime.strptime(str_date,'%Y-%m-%dT%H:%M:%S'),'%m/%d-%H:%M')
+    return datetime.strftime(datetime.strptime(str_date, '%Y-%m-%dT%H:%M:%S'), '%m/%d-%H:%M')
+
 
 def _joblet_format(instance, job, width=74, jobid_type='agg'):
     joblet_reprs = []
     for i, joblet in enumerate(job.joblets):
         jid = str(job.jobid if jobid_type == 'agg' else job.true_jobid)
         joblet_repr = ''
-        joblet_repr += _format_to(jid.replace('[','').replace(']','').split('%')[0], 14)
+        joblet_repr += _format_to(jid.replace('[', '').replace(']', '').split('%')[0], 14)
         joblet_repr += ' '
         loffset = 0
         if instance.show_prio:
@@ -24,6 +26,10 @@ def _joblet_format(instance, job, width=74, jobid_type='agg'):
             joblet_repr += _format_to(job.account, 9)
             joblet_repr += ' '
             loffset += 10
+        if instance.show_starttime:
+            joblet_repr += _format_to(format_date(job.starttime), 12) if not isinstance(job.starttime, float) else _format_to('¯\\_(ツ)_/¯', 11)
+            joblet_repr += ' '
+            loffset += 13
         joblet_repr += _format_to(job.name if i == 0 else '"', width - 65 - loffset, 'right')
         joblet_repr += ' '
         joblet_repr += _format_to(job.user if i == 0 else '"', 13, 'right')
@@ -32,13 +38,13 @@ def _joblet_format(instance, job, width=74, jobid_type='agg'):
         joblet_repr += ' '
         joblet_repr += _format_to(job.runtime if i == 0 else '"', 8, 'right')
         joblet_repr += ' '
-        if type(joblet.mem) == str:
+        if isinstance(joblet.mem, str):
             mem = '0'
         else:
-            mem = round(joblet.mem/1024)
+            mem = round(joblet.mem / 1024)
         joblet_repr += _format_to(f'{mem}G', 4, 'right')
         joblet_repr += ' '
-        if instance.view_mode in ('gpu','ram'):
+        if instance.view_mode in ('gpu', 'ram'):
             joblet_repr += _format_to((f'{joblet.n_gpus}gp' if joblet.n_gpus > 0 else " - "), 3, 'left')
         elif instance.view_mode == 'cpu':
             joblet_repr += _format_to((f'{joblet.cpus}cp' if joblet.cpus > 0 else "-"), 3, 'left')
@@ -47,6 +53,14 @@ def _joblet_format(instance, job, width=74, jobid_type='agg'):
         joblet_reprs.append(joblet_repr)
     job_repr = '\n'.join(joblet_reprs)
     return job_repr
+
+
+STYLE_MAPPING = {'R': None, 'S': 'MAGENTA', 'PD': 'YELLOW', 'CG': 'MAGENTA'}
+
+def dev_sort_key(x):
+    return (x.user,
+     x.jobid.split('_')[0],
+     int(x.jobid.split('_')[1]) if '_' in x.jobid and '[' not in x.jobid else (999 if '[' in x.jobid else 0))
 
 def view_list(instance, jobs, filter=None, work=True, stylefn=cmdstyle, current_user=None, width=74, jit='agg'):
     # this is for hot reload
@@ -78,67 +92,36 @@ def view_list(instance, jobs, filter=None, work=True, stylefn=cmdstyle, current_
     for j in jobs:
         if j.user == current_user and 'me' in printable:
             jobs_to_print.append(j)
-        elif 'stu' in j.partition and 'stud' in printable and is_student_viz(j):
+        elif 'stud' in printable and is_student_viz(j):
             jobs_to_print.append(j)
-        elif (not 'stu' in j.partition) and 'prod' in printable:
+        elif 'prod' in printable and not is_student_viz(j):
             jobs_to_print.append(j)
         elif 'cvcs' in printable and is_cvcs_viz(j):
             jobs_to_print.append(j)
 
     class RetScope:
         return_string = ''
+
     def cust_print(thing, style=None):
-        RetScope.return_string += (thing if style is None else stylefn(style,thing)) + '\n'
+        RetScope.return_string += (thing if style is None else stylefn(style, thing)) + '\n'
 
-    # from datetime import datetime
-    # cust_print(f'{datetime.now()} - {filter}')
-
-    devjobs = sorted([x for x in jobs_to_print if 'dev' in x.partition], key=lambda x: (x.user, x.jobid.split('_')[0], int(x.jobid.split('_')[1]) if '_' in x.jobid and '[' not in x.jobid else (999 if '[' in x.jobid else 0)))
-    # dev - running
-
-    for x in devjobs:
-        if x.state == 'R':
-            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit))
-
-    # dev - stopped
-    for x in devjobs:
-        if x.state == 'S':
-            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='MAGENTA')
-
-    # dev - pending
-    for x in devjobs:
-        if x.state == 'PD':
-            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='YELLOW')
-
-    # dev - concluding
-    for x in devjobs:
-        if x.state == 'CG':
-            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='MAGENTA')
+    devjobs = sorted([x for x in jobs_to_print if is_dev(x)], key=lambda x: dev_sort_key(x))
+    for state in STYLE_MAPPING:
+        for x in devjobs:
+            if x.state == state:
+                cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style=STYLE_MAPPING[x.state])
 
     cust_print('─' * ((width - 72) // 2) + midlane + '─' * (width - 72 - ((width - 72) // 2)))
-    prodjobs = sorted([x for x in jobs_to_print if not('dev' in x.partition)], key=lambda x: (x.user if not instance.sort_by_prio else -x.priority , x.jobid.split('_')[0], int(x.jobid.split('_')[1]) if '_' in x.jobid and '[' not in x.jobid else (999 if '[' in x.jobid else 0)))
+    prodjobs = sorted([x for x in jobs_to_print if not is_dev(x)], key=lambda x: (x.user if not instance.sort_by_prio else -x.priority,
+                      x.jobid.split('_')[0], int(x.jobid.split('_')[1]) if '_' in x.jobid and '[' not in x.jobid else (999 if '[' in x.jobid else 0)))
 
-    # dev - running
-    for x in prodjobs:
-        if x.state == 'R':
-            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit))
-
-    # dev - stopped
-    for x in prodjobs:
-        if x.state == 'S':
-            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='MAGENTA')
-
-    # dev - pending
-    for x in prodjobs:
-        if x.state == 'PD':
-            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='YELLOW')
-
-    # dev - concluding
-    for x in prodjobs:
-        if x.state == 'CG':
-            cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style='MAGENTA')
+    for state in STYLE_MAPPING:
+        for x in prodjobs:
+            if x.state == state:
+                cust_print(_joblet_format(instance, x, width=width, jobid_type=jit), style=STYLE_MAPPING[x.state])
 
     return RetScope.return_string
+
 
 if __name__ == '__main__':
     import sys

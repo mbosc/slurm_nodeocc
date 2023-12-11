@@ -1,14 +1,30 @@
 import numpy as np
 import re
 
+
 def is_student_viz(user):
-    return 'students' in user.partition and re.search(r'cvcs|ai4a2023', user.account.lower()) is None
+    return user.user_group in ('studenti', 'tesisti') and not is_cvcs_viz(user)
+
 
 def is_cvcs_viz(user):
     return re.search(r'cvcs|ai4a2023', user.account.lower()) is not None
 
+
+def is_dev(job):
+    return job.partition == 'all_serial'
+
+
+def is_prod(job):
+    return job.partition == 'all_usr_prod'
+
+
 def to_datetime(time_str):
     return np.datetime64(re.match(r'\d+\s+(.*)\n', str(time_str)).group(1))
+
+
+def to_datetime(time_str):
+    return np.datetime64(re.match(r'\d+\s+(.*)\n', str(time_str)).group(1))
+
 
 def maintenance_status(infrastructure):
     onmain = False
@@ -34,7 +50,9 @@ def maintenance_status(infrastructure):
                 waitString = '%dm' % tt_m
     return onmain, waitString
 
+
 numfont = '⁰¹²³⁴⁵⁶⁷⁸⁹'
+
 
 def to_font(num):
     if num < 0:

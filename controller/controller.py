@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 
 
+import numpy as np
+
 conf_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 print(conf_path)
 sys.path.append(conf_path)
@@ -27,7 +29,7 @@ import asyncio
 BEGIN_DELIM = "!{$"
 END_DELIM_ENCODED = "!}$".encode('utf-8')
 MAX_BUF = 65535
-MAX_MSG_LEN = 1024*1024*1024
+MAX_MSG_LEN = 1024 * 1024 * 1024
 
 parser = argparse.ArgumentParser(description='Visualize slurm jobs')
 parser.add_argument('--debug', action='store_true', help='Enable logging')
@@ -51,11 +53,13 @@ if os.path.getmtime(conf_path + "/view/styles.py") > last_update:
 if os.path.getmtime(conf_path + "/readers/slurmreader.py") > last_update:
     last_update = os.path.getmtime(conf_path + "/readers/slurmreader.py")
 
-program_name = "nodeocc"
+program_name = "nodocc"
 version_number = 1.00
+
 
 def get_avg_wait_time(instance: Singleton):
     try:
+        raise Exception("Not implemented")
         avg_wait_time = get_wait_time('prod' if instance.cur_partition == 'prod' else 'students-prod')
         h = avg_wait_time // 3600
         m = (avg_wait_time % 3600) // 60
@@ -91,16 +95,17 @@ def update_data_master(instance):
     # msg to bytes
     msg = msg.encode('utf-8')
     msg_len = len(msg)
-    msg = (str(msg_len)+BEGIN_DELIM).encode('utf-8') + msg + END_DELIM_ENCODED
+    msg = (str(msg_len) + BEGIN_DELIM).encode('utf-8') + msg + END_DELIM_ENCODED
     instance.timeme(f"- msg encoded with len {msg_len}")
 
-    instance.sock.sendto(msg ,('<broadcast>', instance.port))
+    instance.sock.sendto(msg, ('<broadcast>', instance.port))
     instance.timeme(f"- broadcast")
 
     return inf, jobs
 
+
 async def get_data_slave(instance):
-    inf, jobs= None, None
+    inf, jobs = None, None
     try:
         # listen for data from master
         # instance.sock.settimeout(6.5)
@@ -127,7 +132,7 @@ async def get_data_slave(instance):
             msg = json.loads(data)
             inf = Infrastructure.from_dict(msg['inf'])
             jobs = [Job.from_dict(j) for j in msg['jobs']]
-            avg_wait_time = "Future" # get_avg_wait_time(instance)
+            avg_wait_time = "N/A"  # get_avg_wait_time(instance)
             instance.timeme(f"- receive")
         else:
             instance.timeme(f"- no data")
@@ -141,6 +146,7 @@ async def get_data_slave(instance):
         try_open_socket_as_slave(instance)
 
     return inf, jobs, avg_wait_time
+
 
 async def get_all():
     global last_update
@@ -180,6 +186,7 @@ async def get_all():
 
     return inf, jobs, avg_wait_time
 
+
 def display_main(stdscr):
     return asyncio.run(main(stdscr))
 
@@ -192,6 +199,7 @@ if __name__ == '__main__':
         instance.log(f"Starting master daemon")
         # register atexit
         import atexit
+
         def exit_handler():
             instance.log(f"Exiting...")
             instance.sock.close()

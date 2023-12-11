@@ -1,4 +1,7 @@
 from view.curses_multiwindow import Singleton
+import grp
+import os
+from pwd import getpwnam
 
 class Job(object):
     """
@@ -19,6 +22,10 @@ class Job(object):
         self.tres = tres
         self.starttime = start_time
         self.nice = nice
+        self.user_group = grp.getgrgid(getpwnam(self.user)[3]).gr_name
+
+    def is_student(self):
+        return self.user_group in ['studenti', 'tesisti']
 
     @staticmethod
     def from_dict(d):

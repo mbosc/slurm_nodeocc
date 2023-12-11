@@ -168,7 +168,7 @@ async def get_data_slave(instance):
             msg = json.loads(data)
             inf = Infrastructure.from_dict(msg['inf'])
             jobs = [Job.from_dict(j) for j in msg['jobs']]
-            avg_wait_time = get_avg_wait_time(instance)
+            avg_wait_time = "Future" # get_avg_wait_time(instance)
             instance.timeme(f"- receive")
         else:
             instance.timeme(f"- no data")

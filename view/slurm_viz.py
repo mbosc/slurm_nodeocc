@@ -157,9 +157,9 @@ def view_viz_ram(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
             for j in sorted(jobs, key=lambda x: (x.partition, x.user)):
                 for jj in j.joblets:
                     if n.name == jj.node:
-                        if 'stu' in j.partition and 'prod' in j.partition:
+                        if j.is_student() and 'all_usr_prod' in j.partition:
                             total_jobs_stud += int(round((jj.mem) / 1024))
-                        elif 'prod' in j.partition:
+                        elif 'all_usr_prod' in j.partition:
                             total_jobs_prod += int(round((jj.mem) / 1024))
                         occs += jj.mem
                         icon = ram_paused if j.state == 'S' else ram_occ
@@ -274,9 +274,9 @@ def view_viz_gpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
                     if jj.n_gpus == 0:
                         continue
                     if n.name == jj.node:
-                        if 'stu' in j.partition and 'prod' in j.partition:
+                        if j.is_student() and 'all_usr_prod' in j.partition:
                             total_jobs_stud += jj.n_gpus
-                        elif 'prod' in j.partition:
+                        elif 'all_usr_prod' in j.partition:
                             total_jobs_prod += jj.n_gpus
                         occs += jj.n_gpus
                         icon = gpu_paused if j.state == 'S' else gpu_occ
@@ -390,9 +390,9 @@ def view_viz_cpu(infrastructure, jobs, work=True, stylefn=cmdstyle, current_user
             for j in sorted(jobs, key=lambda x: (x.partition, x.user)):
                 for jj in j.joblets:
                     if n.name == jj.node:
-                        if 'stu' in j.partition and 'prod' in j.partition:
+                        if j.is_student() and 'all_usr_prod' in j.partition:
                             total_jobs_stud += jj.cpus
-                        elif 'prod' in j.partition:
+                        elif 'all_usr_prod' in j.partition:
                             total_jobs_prod += jj.cpus
                         occs += jj.cpus
                         icon = cpu_paused if j.state == 'S' else cpu_occ

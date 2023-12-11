@@ -82,25 +82,25 @@ def _read_limits():
     Read the maximum amount of GPUs allowed
     :returns max_prod_per_user, max_prod_group, max_studentsprod_per_user, max_studentsprod_group
     """
-    lims = pd.read_fwf(StringIO(os.popen(r'sacctmgr show qos format=\'name%15,maxtresperuser%25,grptres%25,maxjobsperuser\' 2>/dev/null').read())).loc[1:]
+    lims = pd.read_fwf(StringIO(os.popen(r'sacctmgr show qos format=\'name%15,maxtresperuser%35,grptres%25,maxjobsperuser\' 2>/dev/null').read())).loc[1:]
     lims['puG'] = lims['MaxTRESPU'].apply(lambda x: int(x.split('gres/gpu=')[1].split(',')[0]) if type(x)==str and 'gres/gpu' in x else float('nan'))
     lims['grpG'] = lims['GrpTRES'].apply(lambda x: int(x.split('gres/gpu=')[1].split(',')[0]) if type(x)==str and 'gres/gpu' in x else float('nan'))
     lims['puM'] = lims['MaxTRESPU'].apply(lambda x: parse_mem(x.split('mem=')[1].split(',')[0]) if type(x)==str and 'mem=' in x else float('nan'))
     lims['grpM'] = lims['GrpTRES'].apply(lambda x: parse_mem(x.split('mem=')[1].split(',')[0]) if type(x)==str and 'mem=' in x else float('nan'))
     lims['puC'] = lims['MaxTRESPU'].apply(lambda x: int(x.split('cpu=')[1].split(',')[0]) if type(x)==str and 'cpu=' in x else float('nan'))
     lims['grpC'] = lims['GrpTRES'].apply(lambda x: int(x.split('cpu=')[1].split(',')[0]) if type(x)==str and 'cpu=' in x else float('nan'))
-    return (lims.loc[lims['Name'] == 'prod', 'puG'].iloc[0],
-            lims.loc[lims['Name'] == 'prod', 'grpG'].iloc[0],
-            lims.loc[lims['Name'] == 'students-prod', 'puG'].iloc[0],
-            lims.loc[lims['Name'] == 'students-prod', 'grpG'].iloc[0],
-            lims.loc[lims['Name'] == 'prod', 'puM'].iloc[0],
-            lims.loc[lims['Name'] == 'prod', 'grpM'].iloc[0],
-            lims.loc[lims['Name'] == 'students-prod', 'puM'].iloc[0],
-            lims.loc[lims['Name'] == 'students-prod', 'grpM'].iloc[0],
-            lims.loc[lims['Name'] == 'prod', 'puC'].iloc[0],
-            lims.loc[lims['Name'] == 'prod', 'grpC'].iloc[0],
-            lims.loc[lims['Name'] == 'students-prod', 'puC'].iloc[0],
-            lims.loc[lims['Name'] == 'students-prod', 'grpC'].iloc[0])
+    return (lims.loc[lims['Name'] == 'all_usr_prod', 'puG'].iloc[0],
+            lims.loc[lims['Name'] == 'all_usr_prod', 'grpG'].iloc[0],
+            lims.loc[lims['Name'] == 'all_usr_prod', 'puG'].iloc[0], #students
+            lims.loc[lims['Name'] == 'all_usr_prod', 'grpG'].iloc[0], #students
+            lims.loc[lims['Name'] == 'all_usr_prod', 'puM'].iloc[0],
+            lims.loc[lims['Name'] == 'all_usr_prod', 'grpM'].iloc[0],
+            lims.loc[lims['Name'] == 'all_usr_prod', 'puM'].iloc[0], #students
+            lims.loc[lims['Name'] == 'all_usr_prod', 'grpM'].iloc[0], #students
+            lims.loc[lims['Name'] == 'all_usr_prod', 'puC'].iloc[0],
+            lims.loc[lims['Name'] == 'all_usr_prod', 'grpC'].iloc[0],
+            lims.loc[lims['Name'] == 'all_usr_prod', 'puC'].iloc[0], #students
+            lims.loc[lims['Name'] == 'all_usr_prod', 'grpC'].iloc[0]) #students
 
 def read_infrastructure():
     """
@@ -258,6 +258,9 @@ def read_jobs():
 
     _purge_cache()
     instance.timeme(f"\t- purging cache")
+
+    if len(squeue_df) == 0:
+        return [], []
 
     joblets = squeue_df.apply(lambda line: Joblet(line['JOBID'], line['TRUE_JOBID'], _node_preproc(line['NODELIST']) if not pd.isna(line['NODELIST']) else None, line['joblet_gpus'], line['joblet_cpus'], line['joblet_mem']), axis=1).tolist()
     jobs = squeue_df.drop_duplicates('JOBID').apply(lambda line: Job(
